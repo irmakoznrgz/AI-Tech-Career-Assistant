@@ -3,7 +3,7 @@ import re
 import time
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer, ENGLISH_STOP_WORDS
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import LinearSVC
 from sklearn.calibration import CalibratedClassifierCV
@@ -25,7 +25,7 @@ def clean_seniority_words(text):
 def load_and_prepare_data(filepath):
     df = pd.read_csv(filepath)
     
-    df['Cleaned_Title'] = df['Job_Title'].apply(clean_seniority_words)
+    df['Cleaned_Title'] = df['Job_Title'].fillna('').apply(clean_seniority_words)
     
     df['Combined_Text'] = df['Cleaned_Title'].astype(str) + " " + \
                           df['Required_Skills'].astype(str) + " " + \
@@ -35,8 +35,11 @@ def load_and_prepare_data(filepath):
     y = le.fit_transform(df['Job_Domain'])
     
     print("Category Matches:", dict(zip(le.classes_, le.transform(le.classes_))))
-    
-    tfidf = TfidfVectorizer(max_features=7000, stop_words='english')
+
+    tr_stop_words = ['ve', 'veya', 'ile', 'için', 'bir', 'bu', 'da', 'de', 'gibi', 'olarak', 'olan', 'göre', 'en', 'daha', 'çok', 'var', 'yok', 'yıl', 'tecrübe', 'çalışma', 'ekip', 'aranan', 'nitelikler', 'nan']
+    custom_stop_words = list(ENGLISH_STOP_WORDS) + tr_stop_words
+
+    tfidf = TfidfVectorizer(max_features=7000, stop_words=custom_stop_words, ngram_range=(1, 2))
     X = tfidf.fit_transform(df['Combined_Text'])
     
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
@@ -46,19 +49,19 @@ def load_and_prepare_data(filepath):
 def train_domain_models(X_train, X_test, y_train, y_test, label_encoder):
     target_names = label_encoder.classes_
     
-    svc_base = LinearSVC(random_state=42, dual=False)
+    svc_base = LinearSVC(random_state=42, dual=False, class_weight='balanced')
     calibrated_svc = CalibratedClassifierCV(svc_base, method='sigmoid', cv=3)
 
     models = {
         "Naive Bayes": MultinomialNB(),
 
-        "Logistic Regression": LogisticRegression(max_iter=1000, random_state=42),
+        "Logistic Regression": LogisticRegression(max_iter=1000, random_state=42, class_weight='balanced'),
 
         "Linear SVC": calibrated_svc,
 
         "XGBoost": XGBClassifier(eval_metric='mlogloss', random_state=42),
 
-        "LightGBM": LGBMClassifier(random_state=42, verbose=-1)
+        "LightGBM": LGBMClassifier(random_state=42, verbose=-1, class_weight='balanced')
     }
     
     results = {}

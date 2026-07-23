@@ -2,7 +2,7 @@ import pandas as pd
 import time
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer, ENGLISH_STOP_WORDS
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import LinearSVC
 from sklearn.calibration import CalibratedClassifierCV
@@ -22,6 +22,8 @@ def load_and_prepare_data(filepath):
     df = pd.read_csv(filepath)
     
     df_train = df[df['Experience_Level'] != 'Not specified'].copy()
+    df_train.fillna('', inplace=True)
+
     print(f"Number of suitable job postings for training: {len(df_train)}")
     
     df_train['Combined_Text'] = df_train['Required_Skills'].astype(str) + " " + df_train['Job_Description'].astype(str)
@@ -33,8 +35,11 @@ def load_and_prepare_data(filepath):
     y = le.fit_transform(y_raw)
     
     print("Class matches:", dict(zip(le.classes_, le.transform(le.classes_))))
+
+    tr_stop_words = ['ve', 'veya', 'ile', 'için', 'bir', 'bu', 'da', 'de', 'gibi', 'olarak', 'olan', 'göre', 'en', 'daha', 'çok', 'var', 'yok', 'yıl', 'tecrübe', 'çalışma', 'ekip', 'aranan', 'nitelikler', 'nan']
+    custom_stop_words = list(ENGLISH_STOP_WORDS) + tr_stop_words
     
-    tfidf = TfidfVectorizer(max_features=5000, stop_words='english')
+    tfidf = TfidfVectorizer(max_features=7000, stop_words=custom_stop_words, ngram_range=(1, 2))
     X = tfidf.fit_transform(X_raw)
     
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
@@ -55,9 +60,9 @@ def train_and_evaluate_models(X_train, X_test, y_train, y_test, label_encoder):
 
         "XGBoost": XGBClassifier(eval_metric='mlogloss', random_state=42),
 
-        "LightGBM": LGBMClassifier(random_state=42, verbose=-1),
+        "LightGBM": LGBMClassifier(random_state=42, verbose=-1, class_weight='balanced'),
 
-        "CatBoost": CatBoostClassifier(verbose=0, random_state=42, allow_writing_files=False)
+        "CatBoost": CatBoostClassifier(verbose=0, random_state=42, allow_writing_files=False, auto_class_weights='Balanced')
     }
     
     results = {}

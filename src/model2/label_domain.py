@@ -35,6 +35,7 @@ def assign_domain(title):
 def process_and_label_data():
     df = pd.read_csv("data/processed/cleaned_data.csv")
     
+    df['Job_Title'] = df['Job_Title'].fillna('')
     df['Job_Domain'] = df['Job_Title'].apply(assign_domain)
     
     print("="*50)

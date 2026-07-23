@@ -2,7 +2,7 @@ import pandas as pd
 import re
 import joblib
 from sklearn.preprocessing import LabelEncoder
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer, ENGLISH_STOP_WORDS
 from lightgbm import LGBMClassifier
 import warnings
 
@@ -11,31 +11,35 @@ warnings.filterwarnings('ignore')
 def clean_seniority_words(text):
     text = str(text).lower()
     pattern = r'\b(senior|junior|mid-level|mid|lead|Middle|Leader|manager|Part time|Working|student|intern|Kıdemli|stajyer|uzman|specialist)\b'
+
     text = re.sub(pattern, '', text)
+
     return " ".join(text.split())
 
 def export_final_model():
     filepath = "data/processed/labeled_domain_data.csv"
     df = pd.read_csv(filepath)
     
-    df['Cleaned_Title'] = df['Job_Title'].apply(clean_seniority_words)
+    df['Cleaned_Title'] = df['Job_Title'].fillna('').apply(clean_seniority_words)
     df['Combined_Text'] = df['Cleaned_Title'].astype(str) + " " + \
-                          df['Required_Skills'].astype(str) + " " + \
-                          df['Job_Description'].astype(str)
+                          df['Required_Skills'].fillna('').astype(str) + " " + \
+                          df['Job_Description'].fillna('').astype(str)
     le = LabelEncoder()
     y = le.fit_transform(df['Job_Domain'])
 
-    tfidf = TfidfVectorizer(max_features=7000, stop_words='english')
+    tr_stop_words = ['ve', 'veya', 'ile', 'için', 'bir', 'bu', 'da', 'de', 'gibi', 'olarak', 'olan', 'göre', 'en', 'daha', 'çok', 'var', 'yok', 'yıl', 'tecrübe', 'çalışma', 'ekip', 'aranan', 'nitelikler', 'nan']
+
+    custom_stop_words = list(ENGLISH_STOP_WORDS) + tr_stop_words
+
+    tfidf = TfidfVectorizer(max_features=7000, stop_words=custom_stop_words, ngram_range=(1, 2))
     X = tfidf.fit_transform(df['Combined_Text'])
     
     best_params = {
-        'max_depth': 6, 
-        'n_estimators': 700, 
-        'learning_rate': 0.014598046257479147, 
-        'num_leaves': 35, 
-        'min_child_samples': 36, 
-        'subsample': 0.6375098575982161, 
-        'colsample_bytree': 0.694426954320492,
+       'max_depth': 3, 
+       'n_estimators': 600, 
+       'learning_rate': 0.1163893261568784, 'num_leaves': 7, 
+       'min_child_samples': 14, 
+       'subsample': 0.6020646708956445, 'colsample_bytree': 0.9173651179370891,
         'class_weight': 'balanced',
         'random_state': 42,
         'verbose': -1
