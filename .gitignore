@@ -6,3 +6,4 @@ data/processed/
 data/chroma_db/
 chrome_profile_*/
 *.pkl
+data/
