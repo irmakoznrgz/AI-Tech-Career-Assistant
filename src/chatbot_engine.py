@@ -51,84 +51,57 @@ class AITechCareerChatbot:
             )
         )
 
-    def _get_relevant_jobs(self, user_message):
-        """Retrieves and formats jobs into structured plain text for the LLM."""
-        results = self.collection.query(
-            query_texts=[user_message],
-            n_results=100
-        )
+    def search_jobs_for_ui(self, search_query="yazılım bilişim teknoloji veri uzman geliştirici mühendis", ui_filters=None):
+        search_params = {
+            "query_texts": [search_query], 
+            "n_results": 40
+        }
         
-        MAX_DISTANCE_THRESHOLD = 1.2
-        MAX_LLM_JOBS = 5
-        job_context = ""
-        valid_count = 0
+        if ui_filters:
+            search_params["where"] = ui_filters
+
+        results = self.collection.query(**search_params)
+        
+        job_list = []
         
         for i in range(len(results['ids'][0])):
-            distance = results['distances'][0][i]
-            if distance > MAX_DISTANCE_THRESHOLD:
-                continue
-                
-            valid_count += 1
-            if valid_count <= MAX_LLM_JOBS:
-                metadata = results['metadatas'][0][i]
-                document = results['documents'][0][i] 
-
-            job_context += f"--- JOB {valid_count} ---\n"
-            job_context += f"Position: {metadata.get('title')}\n"
-            job_context += f"Company: {metadata.get('company')}\n"
-            job_context += f"Location & Model: {metadata.get('location')} - {metadata.get('work_model')}\n"
-            job_context += f"Domain: {metadata.get('domain')}\n"
-            job_context += f"Experience Required: {metadata.get('experience')}\n"
-            job_context += f"Application Link: {metadata.get('link')}\n"
-            job_context += f"Full Description & Skills:\n{document.strip()}\n\n"
-
-            if valid_count > MAX_LLM_JOBS:
-                job_context += f"\n[SYSTEM NOTE: A total of {valid_count} suitable job postings were found in the database, but for speed optimization, I have only provided you with the details of the top {MAX_LLM_JOBS}. You may inform the user that a total of {valid_count} jobs were found.]\n"
+            metadata = results['metadatas'][0][i]
+            document = results['documents'][0][i]
             
-        return job_context
+            job_list.append({
+                "title": metadata.get('title', 'Unknown'),
+                "company": metadata.get('company', 'Unknown'),
+                "location": metadata.get('location', 'Unknown'),
+                "work_model": metadata.get('work_model', 'Unknown'),
+                "domain": metadata.get('domain', 'Unknown'),
+                "experience": metadata.get('experience', 'Unknown'),
+                "link": metadata.get('link', '#'),
+                "description": document.strip()
+            })
+            
+        return job_list
 
-    def generate_response_stream(self, user_message):
-        """Generates a streamed response using RAG and Gemini's built-in chat memory."""
-        context_jobs = self._get_relevant_jobs(user_message)
+    def generate_response_stream(self, user_message, job_list):
+        MAX_LLM_JOBS = 3
+        job_context = ""
         
-        if not context_jobs:
-            context_jobs = "No suitable jobs found in the database for this specific query."
+        for i, job in enumerate(job_list[:MAX_LLM_JOBS]):
+            job_context += f"--- JOB {i+1} ---\n"
+            job_context += f"Position: {job['title']}\n"
+            job_context += f"Company: {job['company']}\n"
+            job_context += f"Location: {job['location']} - {job['work_model']}\n"
+            job_context += f"Experience: {job['experience']}\n"
+            job_context += f"Details: {job['description'][:300]}...\n\n"
+            
+        if len(job_list) > MAX_LLM_JOBS:
+            job_context += f"\n[SYSTEM NOTE: The database found {len(job_list)} jobs, but I provided you with the top {MAX_LLM_JOBS}. Mention to the user that {len(job_list)} jobs were found.]\n"
 
-        prompt = f"[DATABASE CONTEXT (AVAILABLE JOBS)]\n{context_jobs}\n\n[USER MESSAGE]\n{user_message}"
+        prompt = f"[DATABASE CONTEXT]\n{job_context}\n\n[USER MESSAGE]\n{user_message}"
 
         try:
             response = self.chat_session.send_message_stream(prompt)
-            
             for chunk in response:
                 if chunk.text:
                     yield chunk.text
-                    
         except Exception as e:
-            yield f"\n[API ERROR] An error occurred: {str(e)}"
-
-# --- TEST BLOCK ---
-if __name__ == "__main__":
-    chatbot = AITechCareerChatbot()
-    
-    print("🤖 AI Tech Career Assistant Testing...")
-    print("Type 'q' or 'quit' to exit.")
-    print("Type 'temizle' or 'reset' to clear conversation memory.\n")
-    
-    while True:
-        user_input = input("You: ")
-        
-        if user_input.lower() in ['q', 'quit', 'exit', 'çıkış']:
-            print("Goodbye!")
-            break
-            
-        if user_input.lower() in ['temizle', 'reset', 'clear']:
-            chatbot.reset_chat_session()
-            print("🔄 Memory cleared! Starting a fresh conversation.\n")
-            continue
-            
-        print("\n🤖 Assistant:\n" + "-"*40)
-        
-        for chunk_text in chatbot.generate_response_stream(user_input):
-            print(chunk_text, end="", flush=True)
-            
-        print("\n" + "-" * 40 + "\n")
+            yield f"\n[API ERROR] {str(e)}"
