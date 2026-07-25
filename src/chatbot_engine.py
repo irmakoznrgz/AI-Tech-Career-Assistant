@@ -54,7 +54,8 @@ class AITechCareerChatbot:
     def search_jobs_for_ui(self, search_query="yazılım bilişim teknoloji veri uzman geliştirici mühendis", ui_filters=None):
         search_params = {
             "query_texts": [search_query], 
-            "n_results": 40
+            "n_results": 150,
+            "include": ["metadatas", "documents", "embeddings"]
         }
         
         if ui_filters:
@@ -76,27 +77,32 @@ class AITechCareerChatbot:
                 "domain": metadata.get('domain', 'Unknown'),
                 "experience": metadata.get('experience', 'Unknown'),
                 "link": metadata.get('link', '#'),
-                "description": document.strip()
+                "logo": metadata.get('Logo_Link', ''),
+                "description": document.strip(),
+                "embedding": results['embeddings'][0][i] if 'embeddings' in results else None
             })
             
         return job_list
 
-    def generate_response_stream(self, user_message, job_list):
+    def generate_response_stream(self, user_message, job_list, cv_text=""):
         MAX_LLM_JOBS = 3
         job_context = ""
         
         for i, job in enumerate(job_list[:MAX_LLM_JOBS]):
             job_context += f"--- JOB {i+1} ---\n"
-            job_context += f"Position: {job['title']}\n"
-            job_context += f"Company: {job['company']}\n"
-            job_context += f"Location: {job['location']} - {job['work_model']}\n"
-            job_context += f"Experience: {job['experience']}\n"
-            job_context += f"Details: {job['description'][:300]}...\n\n"
+            job_context += f"Position: {job['title']} | Company: {job['company']}\n"
+            job_context += f"Req: {job['experience']} | {job['location']}\n"
+            job_context += f"Details: {job['description'][:150]}...\n\n"
             
         if len(job_list) > MAX_LLM_JOBS:
             job_context += f"\n[SYSTEM NOTE: The database found {len(job_list)} jobs, but I provided you with the top {MAX_LLM_JOBS}. Mention to the user that {len(job_list)} jobs were found.]\n"
 
         prompt = f"[DATABASE CONTEXT]\n{job_context}\n\n[USER MESSAGE]\n{user_message}"
+
+        if cv_text:
+            prompt += f"\n[USER CV DATA]\nThe user has uploaded a CV. Use this to give personalized advice:\n{cv_text[:1200]}\n"
+            
+        prompt += f"\n[USER MESSAGE]\n{user_message}"
 
         try:
             response = self.chat_session.send_message_stream(prompt)
