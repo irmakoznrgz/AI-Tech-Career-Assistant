@@ -51,11 +51,19 @@ class AITechCareerChatbot:
             )
         )
 
-    def search_jobs_for_ui(self, search_query="yazılım bilişim teknoloji veri uzman geliştirici mühendis", ui_filters=None):
+    def search_jobs_for_ui(self, search_query="yazılım bilişim teknoloji veri uzman geliştirici mühendis", ui_filters=None, limit=None):
+
+        total_docs = self.collection.count()
+
+        if limit is not None:
+            fetch_limit = min(limit, total_docs) if total_docs > 0 else 10
+        else:
+            fetch_limit = total_docs if total_docs > 0 else 10
+
         search_params = {
             "query_texts": [search_query], 
-            "n_results": 150,
-            "include": ["metadatas", "documents", "embeddings"]
+            "n_results": fetch_limit,
+            "include": ["metadatas", "documents", "embeddings", "distances"]
         }
         
         if ui_filters:
@@ -64,12 +72,32 @@ class AITechCareerChatbot:
         results = self.collection.query(**search_params)
         
         job_list = []
+        seen_jobs = set()
         
         for i in range(len(results['ids'][0])):
             metadata = results['metadatas'][0][i]
             document = results['documents'][0][i]
+
+            title = metadata.get('title', 'Unknown')
+            company = metadata.get('company', 'Unknown')
+        
+            job_identifier = f"{title.lower().strip()}-{company.lower().strip()}"
+           
+            if job_identifier in seen_jobs:
+                continue
+                
+            seen_jobs.add(job_identifier)
             
+            distance = results['distances'][0][i] if 'distances' in results else 1.0
+            match_score = int(max(0, min(100, 100 - (distance * 35))))
+
+            if match_score < 55:
+                continue
+
+            raw_logo = metadata.get('Logo_Link') or metadata.get('logo_link') or metadata.get('logo') or metadata.get('Logo_link') or ""
+
             job_list.append({
+                "id": job_identifier,
                 "title": metadata.get('title', 'Unknown'),
                 "company": metadata.get('company', 'Unknown'),
                 "location": metadata.get('location', 'Unknown'),
@@ -77,8 +105,9 @@ class AITechCareerChatbot:
                 "domain": metadata.get('domain', 'Unknown'),
                 "experience": metadata.get('experience', 'Unknown'),
                 "link": metadata.get('link', '#'),
-                "logo": metadata.get('Logo_Link', ''),
+                "logo": raw_logo,
                 "description": document.strip(),
+                "match_score": match_score,
                 "embedding": results['embeddings'][0][i] if 'embeddings' in results else None
             })
             
@@ -100,7 +129,7 @@ class AITechCareerChatbot:
         prompt = f"[DATABASE CONTEXT]\n{job_context}\n\n[USER MESSAGE]\n{user_message}"
 
         if cv_text:
-            prompt += f"\n[USER CV DATA]\nThe user has uploaded a CV. Use this to give personalized advice:\n{cv_text[:1200]}\n"
+            prompt += f"\n[USER CV DATA]\nThe user has uploaded a CV. Use this to give personalized advice:\n{cv_text}\n"
             
         prompt += f"\n[USER MESSAGE]\n{user_message}"
 
