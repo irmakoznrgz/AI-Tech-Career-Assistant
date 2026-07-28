@@ -8,7 +8,7 @@ from sklearn.decomposition import PCA
 import pandas as pd
 
 # --- PAGE CONFIG ---
-st.set_page_config(page_title="AITechCareer", page_icon="🎯", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="TechCareer.ai", page_icon="🎯", layout="wide", initial_sidebar_state="collapsed")
 
 # --- BACKGROUND & CSS ---
 def get_base64_of_bin_file(bin_file):
@@ -92,44 +92,76 @@ st.markdown(f"""
         background-color: #334155; padding: 4px 8px; border-radius: 6px;
         font-size: 12px; margin-right: 5px; color: #CBD5E1; display: inline-block; margin-bottom: 5px;
     }}
+
+    div[data-testid="stButton"] button[kind="primary"] {{
+        background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        padding: 0.5rem 1rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    }}
+   
+    div[data-testid="stButton"] button[kind="primary"]:hover {{
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(16, 185, 129, 0.4);
+        background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    }}
+
+    div[data-testid="stButton"] button[kind="secondary"] {{
+        background-color: rgba(30, 41, 59, 0.7);
+        border: 1px solid #334155;
+        border-radius: 8px;
+        color: #F8FAFC;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(5px);
+    }}
+
+    div[data-testid="stButton"] button[kind="secondary"]:hover {{
+        border-color: #10B981;
+        color: #10B981;
+        transform: translateY(-2px);
+        background-color: rgba(30, 41, 59, 0.9);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }}
     
     div[data-testid="column"] button {{
         width: 100%;
-        padding: 0.25rem 0.5rem;
     }}
     </style>
 """, unsafe_allow_html=True)
 
-# --- SYSTEM INIT ---
 @st.cache_resource(show_spinner="Loading AI Engine... Please wait!")
 def init_bot():
     return AITechCareerChatbot()
 
 chatbot = init_bot()
 
-# --- OTURUM YÖNETİMİ ---
-if "messages" not in st.session_state: st.session_state.messages = [{"role": "assistant", "content": "Hello, how can I help your career today? 😊"}]
+if "messages" not in st.session_state: st.session_state.messages = [{"role": "assistant", "content": "Hello! I'm your Career Support Assistant."},
+                                                                    {"role": "assistant", "content": "How can I help you advance your career?"}]
 if "current_page" not in st.session_state: st.session_state.current_page = 1
 if "cv_text" not in st.session_state: st.session_state.cv_text = ""
 if "last_cv_name" not in st.session_state: st.session_state.last_cv_name = ""
 if "search_performed" not in st.session_state: st.session_state.search_performed = False
 if "file_uploader_key" not in st.session_state: st.session_state.file_uploader_key = 0
 
-# YENİ: Favoriler için değişkenler
-if "saved_jobs" not in st.session_state: st.session_state.saved_jobs = {} # Kaydedilen ilanları tutan sözlük
-if "view_mode" not in st.session_state: st.session_state.view_mode = "search" # 'search' veya 'saved' modu
+if "saved_jobs" not in st.session_state: st.session_state.saved_jobs = {} 
+if "view_mode" not in st.session_state: st.session_state.view_mode = "search"
 
 if "jobs" not in st.session_state:
     st.session_state.jobs = chatbot.search_jobs_for_ui(limit=50)
 
 # --- HEADER & FILTERS ---
-st.markdown('<div class="custom-header">AI Tech Career</div>', unsafe_allow_html=True)
+st.markdown('<div class="custom-header">TechCareer.ai</div>', unsafe_allow_html=True)
 
 with st.container():
     col1, col2, col3, col4 = st.columns(4)
     cities = ["All Locations", "İstanbul", "Ankara", "İzmir", "Antalya", "Bursa", "Kocaeli", "Eskişehir", "Adana", "Gaziantep", "Kayseri", "Samsun", "Trabzon", "Tekirdağ"]
     city_filter = col1.selectbox("Location", cities) 
-    job_types = ["All Types", "Full-time", "Part-time", "Freelance", "Contract", "Remote", "Hybrid", "On-site"]
+    job_types = ["All Types", "Full-time", "Part-time", "Freelance","Intern", "Contract", "Remote", "Hybrid", "On-site"]
     job_type_filter = col2.selectbox("Job Type", job_types)
     exp_levels = ["All Levels", "Junior", "Mid-Level", "Senior", "Lead/Manager"]
     exp_level = col3.selectbox("Experience Level", exp_levels)
@@ -161,13 +193,11 @@ def build_filters(forced_exp=None):
     else: return {"$and": conditions}
 
 st.write("") 
-# YENİ: Arama çubuğu tasarımına "Kaydedilenler" butonu eklendi
-btn_col, cv_col, saved_col = st.columns([1.5, 2, 1.5])
-search_btn = btn_col.button("🔍 Search Jobs", use_container_width=True)
+btn_col, cv_col, saved_col = st.columns([0.8, 2.7, 1.5])
+search_btn = btn_col.button("Search", use_container_width=True)
 cv_file = cv_col.file_uploader("📄 Magic Search with CV (PDF)", type=["pdf"], label_visibility="collapsed", key=f"uploader_{st.session_state.file_uploader_key}")
 saved_btn = saved_col.button(f"🔖 Saved Jobs ({len(st.session_state.saved_jobs)})", use_container_width=True)
 
-# Görünüm Modu Değiştiricileri
 if saved_btn:
     st.session_state.view_mode = "saved"
     st.session_state.current_page = 1
@@ -183,7 +213,7 @@ if cv_file is None and st.session_state.cv_text != "":
 
 if search_btn or (cv_file and cv_file.name != st.session_state.last_cv_name):
     st.session_state.search_performed = True
-    st.session_state.view_mode = "search" # Aramaya basınca sonuçlara geri dön
+    st.session_state.view_mode = "search" 
     forced_exp = None
     search_query = "yazılım bilişim teknoloji veri uzman geliştirici mühendis" 
     
@@ -193,20 +223,16 @@ if search_btn or (cv_file and cv_file.name != st.session_state.last_cv_name):
         cv_text = " ".join([page.extract_text() for page in pdf_reader.pages])
         st.session_state.cv_text = cv_text 
         
-        cv_text_lower = cv_text.lower()
-        if any(kw in cv_text_lower for kw in ["öğrenci", "student", "stajyer", "intern", "bachelor"]):
-            forced_exp = "Junior"
-            st.toast("Student profile detected! Forcing Junior/Intern roles.", icon="🎓")
-            
+        cv_text_lower = cv_text.lower()       
         tech_keywords = ["python", "java", "c#", "c++", "sql", "react", "node", "aws", "azure", "docker", "kubernetes", "machine learning", "data science", "excel", "powerbi", "javascript"]
         found_skills = [skill for skill in tech_keywords if skill in cv_text_lower]
         
         if found_skills: search_query = " ".join(found_skills) + " " + cv_text[:500]
         else: search_query = cv_text[:1000] 
-        st.toast("CV Analyzed! Displaying tailored jobs...", icon="✨")
+        st.toast("CV Analyzed!", icon="✨")
         
         if len(st.session_state.messages) <= 1:
-            st.session_state.messages = [{"role": "assistant", "content": f"I've analyzed your CV! 🚀 I noticed your skills in **{', '.join(found_skills[:3])}**. I've listed the most suitable jobs on the left."}]
+            st.session_state.messages = [{"role": "assistant", "content": f"I've analyzed your CV! I noticed your skills in **{', '.join(found_skills[:3])}**. I've listed the most suitable jobs on the left."}]
 
     if domain_filter != "All Domains":
         if not st.session_state.cv_text: search_query = domain_keywords.get(domain_filter, "")
@@ -221,7 +247,6 @@ st.write("---")
 main_col, chat_col = st.columns([2, 1], gap="large")
 
 with main_col:
-    # Hangi listenin gösterileceğini belirleme (Arama Sonuçları mı yoksa Kaydedilenler mi?)
     if st.session_state.view_mode == "saved":
         display_jobs = list(st.session_state.saved_jobs.values())
         title_prefix = "🔖 Your Saved Jobs"
@@ -252,7 +277,7 @@ with main_col:
             else: logo_html = '<div class="job-logo-fallback">🏢</div>'
                 
             match_score = job.get("match_score", 0)
-            match_badge = f'<span style="background-color: #ef4444; color: white; font-weight: bold;">🔥 %{match_score} Match</span>' if st.session_state.cv_text and match_score else ""
+            match_badge = f'<span style="background-color: #ef4444; color: white; font-weight: bold;">%{match_score} Match</span>' if st.session_state.cv_text and match_score else ""
             
             domain_tag = job.get('domain', 'Unknown')
             if domain_filter != "All Domains" and domain_tag == "Unknown": domain_tag = domain_filter 
@@ -261,17 +286,16 @@ with main_col:
             if match_badge: tags_html += match_badge
             
             loc = job.get("location", "")
-            if loc and loc not in ["Unknown", "Not specified"]: tags_html += f"<span>📍 {loc}</span>"
+            if loc and loc not in ["Unknown", "Not specified"]: tags_html += f"<span>{loc}</span>"
             wm = job.get("work_model", "")
-            if wm and wm not in ["Unknown", "Not specified"]: tags_html += f"<span>💼 {wm}</span>"
+            if wm and wm not in ["Unknown", "Not specified"]: tags_html += f"<span>{wm}</span>"
             exp = job.get("experience", "")
-            if exp and exp not in ["Unknown", "Not specified"]: tags_html += f"<span>⭐ {exp}</span>"
-            if domain_tag and domain_tag not in ["Unknown", "Not specified", "All Domains"]: tags_html += f"<span>🏷️ {domain_tag}</span>"
+            if exp and exp not in ["Unknown", "Not specified"]: tags_html += f"<span>{exp}</span>"
+            if domain_tag and domain_tag not in ["Unknown", "Not specified", "All Domains"]: tags_html += f"<span>{domain_tag}</span>"
 
             html_card = f'<div class="job-card"><div class="job-header-container">{logo_html}<div><div class="job-title">{job["title"]}</div><div class="job-company">{job["company"]}</div></div></div><div class="job-tags">{tags_html}</div></div>'
             st.markdown(html_card, unsafe_allow_html=True)
-            
-            # YENİ: İlan Detayı ve Save/Remove Butonları Yan Yana
+          
             exp_col, save_col = st.columns([5, 1.2])
             with exp_col:
                 with st.expander("View Job Details"):
@@ -281,17 +305,15 @@ with main_col:
             with save_col:
                 job_id = job.get('id', '')
                 if job_id in st.session_state.saved_jobs:
-                    # Kayıtlıysa Çıkar Butonu
-                    if st.button("❌ Remove", key=f"remove_{job_id}_{st.session_state.view_mode}", use_container_width=True):
+                    
+                    if st.button("Remove", key=f"remove_{job_id}_{st.session_state.view_mode}", use_container_width=True):
                         del st.session_state.saved_jobs[job_id]
                         st.rerun()
                 else:
-                    # Kayıtlı Değilse Ekle Butonu
                     if st.button("❤️ Save", key=f"save_{job_id}_{st.session_state.view_mode}", use_container_width=True):
                         st.session_state.saved_jobs[job_id] = job
                         st.rerun()
                 
-        # --- SAYFALAMA ---
         st.write("")
         if total_pages > 1:
             window_size = 5
@@ -304,7 +326,7 @@ with main_col:
             
             with pagination_content:
                 cols = st.columns(num_buttons)
-                if cols[0].button("⬅️", disabled=(st.session_state.current_page == 1), key="prev_btn", use_container_width=True):
+                if cols[0].button("←", disabled=(st.session_state.current_page == 1), key="prev_btn", use_container_width=True):
                     st.session_state.current_page -= 1
                     st.rerun()
                 for i, p_num in enumerate(range(start_page, end_page + 1)):
@@ -313,16 +335,15 @@ with main_col:
                     if cols[i+1].button(str(p_num), type=btn_type, key=f"page_{p_num}", use_container_width=True):
                         st.session_state.current_page = p_num
                         st.rerun()
-                if cols[-1].button("➡️", disabled=(st.session_state.current_page == total_pages), key="next_btn", use_container_width=True):
+                if cols[-1].button("→", disabled=(st.session_state.current_page == total_pages), key="next_btn", use_container_width=True):
                     st.session_state.current_page += 1
                     st.rerun()
             
-        # MODEL 3: KARIYER GALAKSISI (Sadece Arama Modunda Çıkar)
         if st.session_state.view_mode == "search":
             st.write("---")
-            with st.expander("🌌 View Career Galaxy (Job Clustering Map)", expanded=False):
+            with st.expander("View Career Galaxy", expanded=False):
                 if len(display_jobs) > 3:
-                    if st.button("🚀 Generate AI Galaxy Map", use_container_width=True):
+                    if st.button("Generate AI Galaxy Map", use_container_width=True):
                         with st.spinner("Mapping your CV in the AI Galaxy..."):
                             try:
                                 texts_for_map = [j['description'] for j in display_jobs]
@@ -362,18 +383,21 @@ with main_col:
                                 if st.session_state.cv_text:
                                     st.markdown("### 🎯 Top 3 Jobs Closest to Your CV")
                                     for top_job in display_jobs[:3]:
-                                        st.markdown(f"- **[{top_job['title']} at {top_job['company']}]({top_job['link']})** (🔥 %{top_job.get('match_score', 0)} Match)")
+                                        st.markdown(f"- **[{top_job['title']} at {top_job['company']}]({top_job['link']})** (%{top_job.get('match_score', 0)} Match)")
                             except Exception as e:
                                 st.error(f"Galaxy map could not be generated: {e}")
                 else:
                     st.info("Not enough jobs found to generate the Galaxy Map. Try a broader search.")
 
-# --- RIGHT PANEL: CHATBOT WIDGET ---
+# --- RIGHT PANEL: CHATBOT ---
 with chat_col:
     with st.expander("💬 Chat with AI Career Assistant", expanded=False):
         c1, c2 = st.columns([3, 1])
         if c2.button("🗑️ Clear", help="Reset Memory"):
-            st.session_state.messages = [{"role": "assistant", "content": "Memory cleared! How can I help your career today? 😊"}]
+            st.session_state.messages = [
+                {"role": "assistant", "content": "Memory cleared!"},
+                {"role": "assistant", "content": "How can I help you advance your career?"}
+            ]
             chatbot.reset_chat_session()
             st.session_state.cv_text = ""
             st.session_state.last_cv_name = ""
@@ -404,7 +428,6 @@ with chat_col:
                 with st.chat_message("assistant", avatar="💬"):
                     response_placeholder = st.empty()
                     full_response = ""
-                    # Hangi ekrandaysak chatbot'a o veriyi yolla (Arananlar veya Kaydedilenler)
                     chat_jobs = list(st.session_state.saved_jobs.values()) if st.session_state.view_mode == "saved" else st.session_state.jobs
                     for chunk in chatbot.generate_response_stream(user_input, chat_jobs, st.session_state.cv_text):
                         full_response += chunk

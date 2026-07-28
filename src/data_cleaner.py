@@ -2,6 +2,7 @@ import pandas as pd
 import os
 import json
 import re
+from datetime import datetime
 
 def load_jsonl_files(raw_dir):
     all_data = []
@@ -39,7 +40,7 @@ def clean_city_name(text):
     if 'antalya' in text: return 'Antalya'
     if 'eskişehir' in text or 'eskisehir' in text: return 'Eskişehir'
     
-    text = re.sub(r'uzaktan|remote|hibrit|hybrid|türkiye|turkiye|turkey|iş yerinde|i̇ş yerinde|asya|avrupa|\(|\)|-|/|,|\d+', ' ', text)
+    text = re.sub(r'uzaktan|remote|hibrit|hybrid|türkiye|turkiye|turkey|iş yerinde|Serbest Zamanlı|i̇ş yerinde|asya|avrupa|\(|\)|-|/|,|\d+', ' ', text)
     text = ' '.join(text.split())
     
     if not text or text == 'nan': 

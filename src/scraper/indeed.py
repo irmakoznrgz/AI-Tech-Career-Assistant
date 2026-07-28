@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import random
+import sys
 from datetime import datetime
 from patchright.async_api import async_playwright
 
@@ -22,17 +23,19 @@ def append_to_jsonl(filepath, data):
     with open(filepath, 'a', encoding='utf-8') as f:
         f.write(json.dumps(data, ensure_ascii=False) + "\n")
 
-async def human_like_delay(min_sec=1.0, max_sec=3.0):
+async def human_like_delay(min_sec=1.5, max_sec=3.5):
     await asyncio.sleep(random.uniform(min_sec, max_sec))
 
 async def simulate_human_behavior(page):
-    width = page.viewport_size['width']
-    height = page.viewport_size['height']
-    await page.mouse.move(random.randint(100, width - 100), random.randint(100, height - 100))
-    await human_like_delay(0.5, 1.5)
+    try:
+        width = page.viewport_size['width']
+        height = page.viewport_size['height']
+        await page.mouse.move(random.randint(100, width - 100), random.randint(100, height - 100))
+        await human_like_delay(0.5, 1.5)
+    except:
+        pass
 
 async def bypass_cloudflare_advanced(page):
-    """Hem Turnstile kutucuğunu hem de 'Refresh' hatasını çözen gelişmiş Cloudflare Bypass"""
     try:
         page_content = await page.content()
         
@@ -70,7 +73,6 @@ async def bypass_cloudflare_advanced(page):
         print(f"    -> [STEALTH] Bypass logic encountered an issue: {e}")
 
 async def destroy_login_popups(page):
-    """Ekrana aniden fırlayan Indeed 'Giriş Yap' veya 'Google' popup'larını HTML'den zorla siler."""
     try:
         await page.evaluate("""
             document.querySelectorAll('[role="dialog"], .mosaic-provider-signin-prompt, [id*="modal"], [class*="modal"]').forEach(e => e.remove());
@@ -105,25 +107,35 @@ async def start_indeed_scraper():
     ]
 
     async with async_playwright() as p:
-        print("Indeed Automation Bot is being launched (GHOST MODE)...")
+        print("Indeed Automation Bot is being launched...")
+        
         browser = await p.chromium.launch(
             channel="chrome", 
             headless=False,   
             slow_mo=150,
             args=[
                 "--disable-blink-features=AutomationControlled",
+                "--disable-infobars",
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
                 "--disable-popup-blocking",
                 "--ignore-certificate-errors",
                 "--window-size=1920,1080"
             ]
         )
+        
         context = await browser.new_context(
             viewport={"width": 1920, "height": 1080},
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            locale="tr-TR",
+            timezone_id="Europe/Istanbul"
         )
+      
+        await context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined});")
         
         page = await context.new_page() 
-        print("\nScraping process is starting with a clean slate!\n")
+        print("\nScraping process is starting with maximum stealth protection!\n")
         
         for keyword in keywords:
             print(f"\n=======================================================")
@@ -136,15 +148,25 @@ async def start_indeed_scraper():
             
             while True:
                 target_url = f"https://tr.indeed.com/jobs?q={formatted_keyword}&l=&start={start_param}"
+            
+                max_retries = 3
+                page_loaded = False
                 
-                try:
-                    await page.goto(target_url, timeout=45000, wait_until="domcontentloaded")
-                except Exception as e:
-                    print(f"Error occurred while loading the page: {e}")
+                for attempt in range(max_retries):
+                    try:
+                        await page.goto(target_url, timeout=45000, wait_until="domcontentloaded")
+                        page_loaded = True
+                        break
+                    except Exception as e:
+                        print(f" -> [WARNING] Connection error (Attempt {attempt + 1}/{max_retries}).Retrying...")
+                        await human_like_delay(3.0, 5.0)
+                
+                if not page_loaded:
                     break
                 
                 await human_like_delay(2.5, 4.0)
                 page_title = await page.title()
+                
                 if "Cloudflare" in page_title or "Doğrulama" in page_title or "Just a moment" in page_title or "Robot" in page_title or "Security Check" in page_title:
                     print(f"\n[SYSTEM WARNING] Security wall detected for '{keyword}'. Initiating stealth bypass...")
                     await bypass_cloudflare_advanced(page)
@@ -175,6 +197,7 @@ async def start_indeed_scraper():
                                     await human_like_delay(2.5, 4.0)
                         except:
                             print("    -> [STEALTH] 'Return home' button not found. Proceeding to force wipe.")
+                            
                         await context.clear_cookies()
                         try:
                             await page.evaluate("""
@@ -184,13 +207,23 @@ async def start_indeed_scraper():
                         except:
                             pass
                             
-                        await human_like_delay(1.5, 2.5)
+                        await human_like_delay(2.0, 3.0)
                     
                         print(f"    -> [STEALTH] Memory wiped. Re-attempting access to page {current_page}...")
-                        try:
-                            await page.goto(target_url, timeout=45000, wait_until="domcontentloaded")
-                        except:
-                            pass
+                        
+                        # Login duvarını aşarken de Retry mantığı uyguluyoruz
+                        reloaded = False
+                        for attempt in range(max_retries):
+                            try:
+                                await page.goto(target_url, timeout=45000, wait_until="domcontentloaded")
+                                reloaded = True
+                                break
+                            except:
+                                await human_like_delay(3.0, 5.0)
+                                
+                        if not reloaded:
+                            print("    -> [SYSTEM WARNING] Could not reload page after memory wipe. Skipping keyword.")
+                            break
                             
                         await human_like_delay(3.0, 4.0)
                         
@@ -252,13 +285,12 @@ async def start_indeed_scraper():
                         
                         await destroy_login_popups(page)
                         
-                        await page.wait_for_selector('#jobDescriptionText', timeout=8000)
+                        await page.wait_for_selector('#jobDescriptionText', timeout=15000)
                         
                         desc_element = page.locator('#jobDescriptionText')
                         job_description = await desc_element.inner_text()
                         job_description = job_description.strip()
                         
-                        await simulate_human_behavior(page)
                     except Exception as e:
                         print(f"    -> [INFO] Description could not be loaded in side panel for {title}.")
                         job_description = "Description could not be retrieved"
@@ -287,11 +319,24 @@ async def start_indeed_scraper():
                 
                 start_param += 10 
                 current_page += 1
-                await human_like_delay(4.5, 7.5)
+                await human_like_delay(5.0, 8.0) 
 
         print("\nClosing the browser...")
         await browser.close()
         print(f"AUTOMATION SUCCESSFUL! Data is securely streamed to '{jsonl_path}'.")
 
 if __name__ == "__main__":
-    asyncio.run(start_indeed_scraper())
+    if sys.platform.startswith("linux"):
+        from pyvirtualdisplay import Display
+        print("[INFO] Linux (GitHub Actions) detected. Starting virtual display for Indeed...")
+        display = Display(visible=0, size=(1920, 1080))
+        display.start()
+    else:
+        display = None
+        print("[INFO] Local OS detected. Running with real display...")
+
+    try:
+        asyncio.run(start_indeed_scraper())
+    finally:
+        if display is not None:
+            display.stop()

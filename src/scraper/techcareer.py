@@ -37,7 +37,6 @@ async def simulate_human_behavior(page):
     await human_like_delay(0.5, 1.0)
 
 async def start_techcareer_scraper():
-    user_data_dir = "./chrome_profile_techcareer_patchright"
     os.makedirs("data/raw", exist_ok=True)
     jsonl_path = "data/raw/techcareer.jsonl"
     
@@ -64,10 +63,9 @@ async def start_techcareer_scraper():
     ]
 
     async with async_playwright() as p:
-        print("Techcareer Automation Bot is being launched (Patchright / Async Mode)...")
-        context = await p.chromium.launch_persistent_context(
-            user_data_dir=user_data_dir,
-            channel="chrome", 
+        print("Techcareer Automation Bot is being launched (Patchright / Cloud Mode)...")
+        
+        browser = await p.chromium.launch(
             headless=True,  
             slow_mo=100,
             args=[
@@ -76,17 +74,34 @@ async def start_techcareer_scraper():
             ]
         )
         
-        main_page = context.pages[0] 
+        context = await browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            viewport={"width": 1920, "height": 1080},
+            ignore_https_errors=True
+        )
+        
+        main_page = await context.new_page() 
         current_page = 1 
         
         print("\n--- TECHCAREER AUTOMATED SCRAPING STARTED ---")
         
-        try:
-            await main_page.goto("https://www.techcareer.net/jobs", timeout=40000, wait_until="domcontentloaded")
-            await human_like_delay(2.0, 3.5)
-        except Exception as e:
-            print(f"Error occurred while connecting to the site: {e}")
+        max_retries = 3
+        page_loaded = False
+        
+        for attempt in range(max_retries):
+            try:
+                await main_page.goto("https://www.techcareer.net/jobs", timeout=45000, wait_until="domcontentloaded")
+                await human_like_delay(2.0, 3.5)
+                page_loaded = True
+                break
+            except Exception as e:
+                print(f"    -> [WARNING] Bağlantı hatası (Deneme {attempt + 1}/{max_retries}). Tekrar deneniyor... Hata: {e}")
+                await human_like_delay(2.5, 4.0)
+                
+        if not page_loaded:
+            print("Error: Could not connect to the site after 3 attempts. Terminating.")
             await context.close()
+            await browser.close()
             return
 
         while True:
@@ -194,6 +209,7 @@ async def start_techcareer_scraper():
                 
             print(f"-> Page {current_page} completed: {page_new_jobs} new jobs seen, {page_valid_it_jobs} valid IT jobs retrieved.")
             next_page_num = current_page + 1
+
             print(f"Triggering DOM Hacker for page {next_page_num}...")
             
             await main_page.evaluate("window.scrollTo(0, document.body.scrollHeight);")
@@ -252,6 +268,7 @@ async def start_techcareer_scraper():
 
         print("\nClosing the browser...")
         await context.close()
+        await browser.close()
         print(f"AUTOMATION SUCCESSFUL! Data is securely streamed to '{jsonl_path}'.")
 
 if __name__ == "__main__":

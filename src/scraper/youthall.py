@@ -37,7 +37,6 @@ async def simulate_human_behavior(page):
     await human_like_delay(0.5, 1.0)
 
 async def start_youthall_scraper():
-    user_data_dir = "./chrome_profile_youthall_patchright"
     os.makedirs("data/raw", exist_ok=True)
     jsonl_path = "data/raw/youthall.jsonl"
     
@@ -61,11 +60,10 @@ async def start_youthall_scraper():
     ]
 
     async with async_playwright() as p:
-        print("Youthall Automation Bot is being launched (Patchright / Async Mode)...")
-        context = await p.chromium.launch_persistent_context(
-            user_data_dir=user_data_dir,
-            channel="chrome", 
-            headless=True,
+        print("Youthall Automation Bot is being launched...")
+        
+        browser = await p.chromium.launch(
+            headless=True, 
             slow_mo=100,
             args=[
                 "--disable-blink-features=AutomationControlled",
@@ -73,7 +71,13 @@ async def start_youthall_scraper():
             ]
         )
         
-        page = context.pages[0] 
+        context = await browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            viewport={"width": 1920, "height": 1080},
+            ignore_https_errors=True
+        )
+        
+        page = await context.new_page() 
         
         for category in categories:
             print(f"\n=======================================================")
@@ -85,17 +89,28 @@ async def start_youthall_scraper():
             while True:
                 target_url = f"{category['url']}/?page={current_page}"
                 
-                try:
-                    await page.goto(target_url, timeout=40000, wait_until="domcontentloaded")
-                except Exception as e:
-                    print(f"Error occurred while loading the page: {e}")
+                max_retries = 3
+                page_loaded = False
+                
+                for attempt in range(max_retries):
+                    try:
+                       
+                        await page.goto(target_url, timeout=45000, wait_until="domcontentloaded")
+                        page_loaded = True
+                        break 
+                    except Exception as e:
+                       print(f" -> [WARNING] Page failed to load (Attempt {attempt + 1}/{max_retries}). Retrying...")
+                       await human_like_delay(2.5, 4.0)
+                
+                if not page_loaded:
+                    print(f" -> [ERROR] Could not reach {target_url} after 3 attempts. Category skipped.")
                     break
                 
                 try:
                     await page.wait_for_selector('.jobs', timeout=15000)
                     await simulate_human_behavior(page)
                 except:
-                    print(f"\n-> [INFO] No ads found on page {current_page}. Category completed.")
+                    print(f"\n-> [INFO] No ads found on page {current_page} (End of pagination). Category completed.")
                     break 
                 
                 job_cards = await page.query_selector_all('.jobs')
@@ -189,6 +204,7 @@ async def start_youthall_scraper():
 
         print("\nClosing the browser...")
         await context.close()
+        await browser.close()
         print(f"AUTOMATION SUCCESSFUL! Data is securely streamed to '{jsonl_path}'.")
 
 if __name__ == "__main__":
