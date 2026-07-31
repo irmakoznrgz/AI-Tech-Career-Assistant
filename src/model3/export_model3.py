@@ -29,14 +29,14 @@ def export_final_model3():
     tr_stop_words = ['ve', 'veya', 'ile', 'için', 'bir', 'bu', 'da', 'de', 'gibi', 'olarak', 'olan', 'göre', 'en', 'daha', 'çok', 'var', 'yok', 'nan', 'yıl', 'tecrübe', 'çalışma', 'ekip', 'aranan', 'nitelikler']
     custom_stop_words = list(ENGLISH_STOP_WORDS) + tr_stop_words
     
-    tfidf = TfidfVectorizer(max_features=7000, stop_words=custom_stop_words)
+    tfidf = TfidfVectorizer(max_features=10000, stop_words=custom_stop_words)
     X_tfidf = tfidf.fit_transform(df['Combined_Text'])
     
     reducer = umap.UMAP(n_neighbors=15, n_components=2, metric='cosine', random_state=42)
     X_umap = reducer.fit_transform(X_tfidf)
   
-    best_mcs = 25
-    best_ms = 3
+    best_mcs = 15
+    best_ms = 15
     clusterer = hdbscan.HDBSCAN(min_cluster_size=best_mcs, min_samples=best_ms, metric='euclidean', prediction_data=True)
     clusterer.fit(X_umap)
     

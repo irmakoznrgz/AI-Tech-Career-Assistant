@@ -54,11 +54,12 @@ class AITechCareerChatbot:
     def search_jobs_for_ui(self, search_query="yazılım bilişim teknoloji veri uzman geliştirici mühendis", ui_filters=None, limit=None):
 
         total_docs = self.collection.count()
+        DEFAULT_LIMIT = 50
 
         if limit is not None:
             fetch_limit = min(limit, total_docs) if total_docs > 0 else 10
         else:
-            fetch_limit = total_docs if total_docs > 0 else 10
+            fetch_limit = min(DEFAULT_LIMIT, total_docs) if total_docs > 0 else 10
 
         search_params = {
             "query_texts": [search_query], 
@@ -104,6 +105,8 @@ class AITechCareerChatbot:
                 "work_model": metadata.get('work_model', 'Unknown'),
                 "domain": metadata.get('domain', 'Unknown'),
                 "experience": metadata.get('experience', 'Unknown'),
+                "cluster_id": metadata.get('cluster_id', -1),
+                "last_seen": metadata.get('last_seen', 'Unknown'),
                 "link": metadata.get('link', '#'),
                 "logo": raw_logo,
                 "description": document.strip(),
@@ -121,12 +124,13 @@ class AITechCareerChatbot:
             job_context += f"--- JOB {i+1} ---\n"
             job_context += f"Position: {job['title']} | Company: {job['company']}\n"
             job_context += f"Req: {job['experience']} | {job['location']}\n"
+            job_context += f"Date: {job['last_seen']}\n"
             job_context += f"Details: {job['description'][:150]}...\n\n"
             
         if len(job_list) > MAX_LLM_JOBS:
             job_context += f"\n[SYSTEM NOTE: The database found {len(job_list)} jobs, but I provided you with the top {MAX_LLM_JOBS}. Mention to the user that {len(job_list)} jobs were found.]\n"
 
-        prompt = f"[DATABASE CONTEXT]\n{job_context}\n\n[USER MESSAGE]\n{user_message}"
+        prompt = f"[DATABASE CONTEXT]\n{job_context}\n"
 
         if cv_text:
             prompt += f"\n[USER CV DATA]\nThe user has uploaded a CV. Use this to give personalized advice:\n{cv_text}\n"

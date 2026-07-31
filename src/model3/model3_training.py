@@ -30,7 +30,7 @@ def perform_advanced_clustering(df):
     tr_stop_words = ['ve', 'veya', 'ile', 'için', 'bir', 'bu', 'da', 'de', 'gibi', 'olarak', 'olan', 'göre', 'en', 'daha', 'çok', 'var', 'yok', 'nan', 'yıl', 'tecrübe', 'çalışma', 'ekip', 'aranan', 'nitelikler']
     custom_stop_words = list(ENGLISH_STOP_WORDS) + tr_stop_words
     
-    tfidf = TfidfVectorizer(max_features=7000, stop_words=custom_stop_words)
+    tfidf = TfidfVectorizer(max_features=10000, stop_words=custom_stop_words)
     X_tfidf = tfidf.fit_transform(df['Combined_Text'])
     
     reducer = umap.UMAP(n_neighbors=15, n_components=2, metric='cosine', random_state=42)

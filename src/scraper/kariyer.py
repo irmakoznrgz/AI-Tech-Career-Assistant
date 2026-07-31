@@ -51,36 +51,93 @@ async def bypass_cloudflare_advanced(page):
             await human_like_delay(4.0, 6.0)
             return
 
-        print("    -> [STEALTH] Scanning for Cloudflare Turnstile widget...")
-        cf_iframe_element = None
-        for frame in page.frames:
-            if "cloudflare" in frame.url.lower() or "turnstile" in frame.url.lower():
-                cf_iframe_element = await page.query_selector(f'iframe[src="{frame.url}"]')
-                break
-                
-        if not cf_iframe_element:
-            cf_iframe_element = await page.query_selector('.cf-turnstile-wrapper, iframe[src*="cloudflare"]')
+        print(" -> [STEALTH] Scanning for security widgets...")
+        await asyncio.sleep(2.5) 
+        
+        target_box = None
+        
+        print("    -> [STEALTH] Checking for custom 'Basılı Tut' buttons...")
+        custom_button_selectors = [
+            'text="Basılı Tut"',
+            'button:has-text("Basılı Tut")',
+            'a:has-text("Basılı Tut")',
+            '[role="button"]'
+        ]
+        for btn_sel in custom_button_selectors:
+            try:
+                btn = await page.query_selector(btn_sel)
+                if btn:
+                    target_box = await btn.bounding_box()
+                    if target_box and target_box["width"] > 0:
+                        print(f"    -> [STEALTH] Custom button found via text match: {btn_sel}")
+                        break
+            except:
+                pass
 
-        if cf_iframe_element:
-            box = await cf_iframe_element.bounding_box()
-            if box:
-                print("    -> [STEALTH] Target acquired. Executing human-like press...")
-                target_x = box["x"] + (box["width"] / 4) + random.uniform(5, 15)
-                target_y = box["y"] + (box["height"] / 2) + random.uniform(-5, 5)
+        if not target_box:
+            for frame in page.frames:
+                if "cloudflare" in frame.url.lower() or "turnstile" in frame.url.lower():
+                    cf_iframe_element = await page.query_selector(f'iframe[src="{frame.url}"]')
+                    if cf_iframe_element:
+                        target_box = await cf_iframe_element.bounding_box()
+                        break
+        
+        if not target_box:
+            print("    -> [STEALTH] Standard iframe missed. Activating Advanced Selectors...")
+            advanced_selectors = [
+                '#challenge-stage', '#turnstile-wrapper', '.cf-turnstile', '.cf-turnstile-wrapper',
+                '#cf-please-wait', 'div[class*="cloudflare"]', 'iframe[src*="cloudflare"]',
+                'iframe[title*="Widget"]', 'iframe[title*="Cloudflare"]',
+                '[role="checkbox"]'
+            ]
+            for sel in advanced_selectors:
+                el = await page.query_selector(sel)
+                if el:
+                    target_box = await el.bounding_box()
+                    if target_box and target_box["width"] > 0:
+                        print(f"    -> [STEALTH] Target found via selector: {sel}")
+                        break
+
+        if not target_box:
+            print("    -> [STEALTH] All radars failed. Looking for fallback interaction area...")
+            body_box = await page.locator('body').bounding_box()
+            if body_box:
+                target_box = {
+                    "x": (body_box["width"] / 2) - 50, 
+                    "y": min(300, (body_box["height"] / 3)), 
+                    "width": 100, 
+                    "height": 100
+                }
+
+        if target_box:
+            print("    -> [STEALTH] Target acquired. Executing LONG human-like press...")
+            target_x = target_box["x"] + (target_box["width"] / 2)
+            target_y = target_box["y"] + (target_box["height"] / 2)
+            
+            await page.mouse.move(target_x + random.uniform(-10, 10), target_y + random.uniform(-5, 5), steps=15) 
+            await asyncio.sleep(0.5)
+            await page.mouse.move(target_x, target_y, steps=5)
+            await asyncio.sleep(1.0)
+            
+            await page.mouse.down()
+            
+            hold_time = random.uniform(11.5, 14.5)
+            print(f"    -> [STEALTH] Holding and wiggling for {hold_time:.1f} seconds to clear verification...")
+            
+            iterations = int(hold_time / 0.3)
+            for _ in range(iterations):
+                await page.mouse.move(
+                    target_x + random.uniform(-3.5, 3.5), 
+                    target_y + random.uniform(-3.5, 3.5)
+                )
+                await asyncio.sleep(0.3)
                 
-                await page.mouse.move(target_x, target_y, steps=15) 
-                await human_like_delay(0.5, 1.0)
-                
-                await page.mouse.down()
-                await human_like_delay(2.5, 4.5) 
-                await page.mouse.up()
-                
-                print("    -> [STEALTH] Action completed. Waiting for validation...")
-                await human_like_delay(4.0, 6.0)
-            else:
-                print("    -> [STEALTH] Could not get bounding box for Cloudflare widget.")
+            await page.mouse.up()
+            
+            print("    -> [STEALTH] Action completed. Waiting for validation...")
+            await human_like_delay(5.0, 7.0)
         else:
-            print("    -> [STEALTH] No visible Cloudflare widget found to click.")
+            print("    -> [STEALTH] No visible widget found to click.")
     except Exception as e:
         print(f"    -> [STEALTH] Bypass logic encountered an issue: {e}")
 
@@ -173,11 +230,11 @@ async def start_kariyer_scraper():
                         page_loaded = True
                         break
                     except Exception as e:
-                        print(f"    -> [WARNING] Bağlantı hatası (Deneme {attempt + 1}/{max_retries})...")
+                        print(f" -> [WARNING] Connection error (Attempt {attempt + 1}/{max_retries})...")
                         await human_like_delay(3.0, 5.0)
                         
                 if not page_loaded:
-                    print(f"    -> [ERROR] {target_url} adresine ulaşılamadı. Kelime atlanıyor.")
+                    print(f" -> [ERROR] Could not reach {target_url}. Word is being skipped.")
                     break
                 
                 await human_like_delay(2.5, 4.0)
@@ -190,7 +247,6 @@ async def start_kariyer_scraper():
                     page_title = await page.title()
                     if "Access to" in page_title or "Just a moment" in page_title:
                         print("[SYSTEM WARNING] Stuck in loop! Wiping session and cookies to drop tracking...")
-            
                         await context.clear_cookies()
                         try:
                             await page.evaluate("""
@@ -255,7 +311,8 @@ async def start_kariyer_scraper():
                         await human_like_delay(1.0, 2.0)
                         
                         detail_title = await detail_page.title()
-                        if "Just a moment" in detail_title or "Cloudflare" in detail_title:
+                       
+                        if "Just a moment" in detail_title or "Cloudflare" in detail_title or "Access to" in detail_title:
                             await bypass_cloudflare_advanced(detail_page)
                        
                         description_selectors = [
@@ -321,7 +378,6 @@ async def start_kariyer_scraper():
 if __name__ == "__main__":
     if sys.platform.startswith("linux"):
         from pyvirtualdisplay import Display
-        print("[INFO] Linux (GitHub Actions) detected. Starting virtual display for Kariyer.net...")
         display = Display(visible=0, size=(1920, 1080))
         display.start()
     else:

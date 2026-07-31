@@ -35,11 +35,13 @@ def export_final_model():
     X = tfidf.fit_transform(df['Combined_Text'])
     
     best_params = {
-       'max_depth': 3, 
-       'n_estimators': 600, 
-       'learning_rate': 0.1163893261568784, 'num_leaves': 7, 
-       'min_child_samples': 14, 
-       'subsample': 0.6020646708956445, 'colsample_bytree': 0.9173651179370891,
+        'max_depth': 11, 
+        'n_estimators': 600, 
+        'learning_rate': 0.03023277130991129, 
+        'num_leaves': 1636, 
+        'min_child_samples': 21, 
+        'subsample': 0.8056965579865885, 
+        'colsample_bytree': 0.8490213766408257,
         'class_weight': 'balanced',
         'random_state': 42,
         'verbose': -1

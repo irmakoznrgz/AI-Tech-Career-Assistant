@@ -9,7 +9,6 @@ from sklearn.svm import LinearSVC
 from sklearn.calibration import CalibratedClassifierCV
 from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier
-from sklearn.naive_bayes import MultinomialNB
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, log_loss, roc_auc_score, classification_report
 import warnings
 
@@ -39,7 +38,7 @@ def load_and_prepare_data(filepath):
     tr_stop_words = ['ve', 'veya', 'ile', 'için', 'bir', 'bu', 'da', 'de', 'gibi', 'olarak', 'olan', 'göre', 'en', 'daha', 'çok', 'var', 'yok', 'yıl', 'tecrübe', 'çalışma', 'ekip', 'aranan', 'nitelikler', 'nan']
     custom_stop_words = list(ENGLISH_STOP_WORDS) + tr_stop_words
 
-    tfidf = TfidfVectorizer(max_features=7000, stop_words=custom_stop_words, ngram_range=(1, 2))
+    tfidf = TfidfVectorizer(max_features=10000, stop_words=custom_stop_words, ngram_range=(1, 2))
     X = tfidf.fit_transform(df['Combined_Text'])
     
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
@@ -53,8 +52,6 @@ def train_domain_models(X_train, X_test, y_train, y_test, label_encoder):
     calibrated_svc = CalibratedClassifierCV(svc_base, method='sigmoid', cv=3)
 
     models = {
-        "Naive Bayes": MultinomialNB(),
-
         "Logistic Regression": LogisticRegression(max_iter=1000, random_state=42, class_weight='balanced'),
 
         "Linear SVC": calibrated_svc,
