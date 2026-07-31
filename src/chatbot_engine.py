@@ -121,6 +121,14 @@ class AITechCareerChatbot:
         job_context = ""
         
         for i, job in enumerate(job_list[:MAX_LLM_JOBS]):
+
+            title = job.get('title', 'Unknown Title')
+            company = job.get('company', 'Unknown Company')
+            experience = job.get('experience', 'Unknown Exp')
+            location = job.get('location', 'Location Not Specified')
+            last_seen = job.get('last_seen', 'Unknown Date')
+            description = job.get('description', '')
+
             job_context += f"--- JOB {i+1} ---\n"
             job_context += f"Position: {job['title']} | Company: {job['company']}\n"
             job_context += f"Req: {job['experience']} | {job['location']}\n"
