@@ -17,6 +17,10 @@ from src.chatbot_engine import AITechCareerChatbot
 
 app = FastAPI(title="TechCareer API")
 
+global_db_bot = AITechCareerChatbot()
+
+chat_sessions: Dict[str, AITechCareerChatbot] = {}
+
 stateless_engine = AITechCareerChatbot()
 
 limiter = Limiter(key_func=get_remote_address)
@@ -85,21 +89,31 @@ class ResetRequest(BaseModel):
 
 # --- ENDPOINTS ---
 
+@app.get("/api/jobs/filters")
+async def get_filters():
+    temp_bot = AITechCareerChatbot()
+    try:
+        filters = global_db_bot.get_unique_filters()
+        return {"status": "success", "data": filters}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/jobs/search")
 async def search_jobs(request: SearchRequest):
     """Retrieves job postings from ChromaDB based on filters from React."""
     try:
-        safe_filters = request.ui_filters
-        
-        if not safe_filters or safe_filters == {} or safe_filters == {"additionalProp1": {}}:
-            safe_filters = None
-            
-        jobs = temp_bot.search_jobs_for_ui(
+        jobs = stateless_engine.search_jobs_for_ui(
             search_query=request.search_query, 
-            ui_filters=safe_filters, 
+            ui_filters=request.ui_filters, 
             limit=request.limit
         )
-        return {"status": "success", "data": jobs}
+        
+        clean_jobs = []
+        for job in jobs:
+            clean_job = {k: v for k, v in job.items() if k != "embedding"}
+            clean_jobs.append(clean_job)
+                
+        return {"status": "success", "data": clean_jobs}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

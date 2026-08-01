@@ -20,14 +20,11 @@ class AITechCareerChatbot:
         
         self.db_path = "data/chroma_db"
         self.chroma_client = chromadb.PersistentClient(path=self.db_path)
-        
         self.sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFunction(
             model_name="paraphrase-multilingual-MiniLM-L12-v2"
         )
-        
         self.collection = self.chroma_client.get_collection(
-            name="job_postings",
-            embedding_function=self.sentence_transformer_ef
+            name="job_postings", embedding_function=self.sentence_transformer_ef
         )
 
         prompt_path = os.path.join("prompts", "system_instruction.md")
@@ -35,83 +32,84 @@ class AITechCareerChatbot:
             with open(prompt_path, "r", encoding="utf-8") as file:
                 self.system_instruction = file.read()
         except FileNotFoundError:
-            raise FileNotFoundError(f"[ERROR] Could not find {prompt_path}. Make sure the folder and file exist.")
+            self.system_instruction = "You are a helpful AI Career Assistant."
     
         self.chat_session = None
         self.reset_chat_session()
+        
+        self.ban_words = ["barmen", "barmaid", "hizmetleri", "büfeci", "garson", "komi", "aşçı", "temizlik", "kasiyer", "şoför", "kurye", "resepsiyon", "güvenlik", "maid"]
+        self.valid_cities = {"Adana", "Adıyaman", "Afyon", "Ağrı", "Amasya", "Ankara", "Antalya", "Artvin", "Aydın", "Balıkesir", "Bilecik", "Bingöl", "Bitlis", "Bolu", "Burdur", "Bursa", "Çanakkale", "Çankırı", "Çorum", "Denizli", "Diyarbakır", "Edirne", "Elazığ", "Erzincan", "Erzurum", "Eskişehir", "Gaziantep", "Giresun", "Gümüşhane", "Hakkari", "Hatay", "Isparta", "Mersin", "İstanbul", "İzmir", "Kars", "Kastamonu", "Kayseri", "Kırklareli", "Kırşehir", "Kocaeli", "Konya", "Kütahya", "Malatya", "Manisa", "Kahramanmaraş", "Mardin", "Muğla", "Muş", "Nevşehir", "Niğde", "Ordu", "Rize", "Sakarya", "Samsun", "Siirt", "Sinop", "Sivas", "Tekirdağ", "Tokat", "Trabzon", "Tunceli", "Şanlıurfa", "Uşak", "Van", "Yozgat", "Zonguldak", "Aksaray", "Bayburt", "Karaman", "Kırıkkale", "Batman", "Şırnak", "Bartın", "Ardahan", "Iğdır", "Yalova", "Karabük", "Kilis", "Osmaniye", "Remote", "Hybrid", "Multiple"}
 
     def reset_chat_session(self):
-        """Creates or resets the isolated chat memory for a user."""
         self.chat_session = self.client.chats.create(
             model=self.model_name,
             config=types.GenerateContentConfig(
                 system_instruction=self.system_instruction,
-                temperature=0.45,  
-                top_p=0.9       
+                temperature=0.45, top_p=0.9        
             )
         )
 
-    def search_jobs_for_ui(self, search_query="yazılım bilişim teknoloji veri uzman geliştirici mühendis", ui_filters=None, limit=None):
-
+    def search_jobs_for_ui(self, search_query="yazılım bilişim teknoloji veri", ui_filters=None, limit=None):
         total_docs = self.collection.count()
-        DEFAULT_LIMIT = 50
-
-        if limit is not None:
-            fetch_limit = min(limit, total_docs) if total_docs > 0 else 10
-        else:
-            fetch_limit = min(DEFAULT_LIMIT, total_docs) if total_docs > 0 else 10
+        fetch_limit = min(limit if limit else 50, total_docs) if total_docs > 0 else 10
 
         search_params = {
             "query_texts": [search_query], 
             "n_results": fetch_limit,
-            "include": ["metadatas", "documents", "embeddings", "distances"]
+            "include": ["metadatas", "documents", "distances"]
         }
         
         if ui_filters:
-            search_params["where"] = ui_filters
+            valid_filters = []
+            for k, v in ui_filters.items():
+                if v and str(v).strip() != "":
+                    # Job Type verisi veritabanında type veya job_type olarak geçebilir
+                    key = "type" if k == "job_type" else k
+                    valid_filters.append({key: {"$eq": v}})
+            
+            if len(valid_filters) == 1: search_params["where"] = valid_filters[0]
+            elif len(valid_filters) > 1: search_params["where"] = {"$and": valid_filters}
 
         results = self.collection.query(**search_params)
         
         job_list = []
         seen_jobs = set()
         
+        if not results.get('ids') or not results['ids'][0]: return job_list
+
         for i in range(len(results['ids'][0])):
             metadata = results['metadatas'][0][i]
             document = results['documents'][0][i]
-
-            title = metadata.get('title', 'Unknown')
-            company = metadata.get('company', 'Unknown')
+            title = str(metadata.get('title', 'Unknown'))
+            company = str(metadata.get('company', 'Unknown'))
+           
+            if any(ban.lower() in title.lower() for ban in self.ban_words):
+                continue
         
             job_identifier = f"{title.lower().strip()}-{company.lower().strip()}"
-           
-            if job_identifier in seen_jobs:
-                continue
-                
+            if job_identifier in seen_jobs: continue
             seen_jobs.add(job_identifier)
             
             distance = results['distances'][0][i] if 'distances' in results else 1.0
             match_score = int(max(0, min(100, 100 - (distance * 35))))
 
-            if match_score < 55:
-                continue
+            if match_score < 45 and not ui_filters: continue
 
-            raw_logo = metadata.get('Logo_Link') or metadata.get('logo_link') or metadata.get('logo') or metadata.get('Logo_link') or ""
+            raw_logo = metadata.get('Logo_Link') or metadata.get('logo_link') or metadata.get('logo') or ""
 
             job_list.append({
                 "id": job_identifier,
-                "title": metadata.get('title', 'Unknown'),
-                "company": metadata.get('company', 'Unknown'),
+                "title": title,
+                "company": company,
                 "location": metadata.get('location', 'Unknown'),
                 "work_model": metadata.get('work_model', 'Unknown'),
+                "job_type": metadata.get('type') or metadata.get('job_type', 'Unknown'),
                 "domain": metadata.get('domain', 'Unknown'),
                 "experience": metadata.get('experience', 'Unknown'),
-                "cluster_id": metadata.get('cluster_id', -1),
-                "last_seen": metadata.get('last_seen', 'Unknown'),
                 "link": metadata.get('link', '#'),
                 "logo": raw_logo,
                 "description": document.strip(),
-                "match_score": match_score,
-                "embedding": results['embeddings'][0][i] if 'embeddings' in results else None
+                "match_score": match_score
             })
             
         return job_list
@@ -119,36 +117,57 @@ class AITechCareerChatbot:
     def generate_response_stream(self, user_message, job_list, cv_text=""):
         MAX_LLM_JOBS = 3
         job_context = ""
-        
         for i, job in enumerate(job_list[:MAX_LLM_JOBS]):
-
-            title = job.get('title', 'Unknown Title')
-            company = job.get('company', 'Unknown Company')
-            experience = job.get('experience', 'Unknown Exp')
-            location = job.get('location', 'Location Not Specified')
-            last_seen = job.get('last_seen', 'Unknown Date')
-            description = job.get('description', '')
-
-            job_context += f"--- JOB {i+1} ---\n"
-            job_context += f"Position: {job['title']} | Company: {job['company']}\n"
-            job_context += f"Req: {job['experience']} | {job['location']}\n"
-            job_context += f"Date: {job['last_seen']}\n"
-            job_context += f"Details: {job['description'][:150]}...\n\n"
+            job_context += f"--- JOB {i+1} ---\nPosition: {job.get('title')} | Company: {job.get('company')}\nReq: {job.get('experience')} | {job.get('location')}\nDetails: {job.get('description', '')[:150]}...\n\n"
             
-        if len(job_list) > MAX_LLM_JOBS:
-            job_context += f"\n[SYSTEM NOTE: The database found {len(job_list)} jobs, but I provided you with the top {MAX_LLM_JOBS}. Mention to the user that {len(job_list)} jobs were found.]\n"
-
         prompt = f"[DATABASE CONTEXT]\n{job_context}\n"
-
         if cv_text:
-            prompt += f"\n[USER CV DATA]\nThe user has uploaded a CV. Use this to give personalized advice:\n{cv_text}\n"
-            
-        prompt += f"\n[USER MESSAGE]\n{user_message}"
+            prompt += f"\n[USER CV DATA]\nThe user has uploaded a CV. Use this context if they ask for advice or matching.\n{cv_text}\n"
+       
+        prompt += f"\n[CRITICAL RULE]\nDetect the language of the USER MESSAGE below. You MUST reply entirely in that exact same language. Do NOT use English if the user speaks Turkish.\n\n[USER MESSAGE]\n{user_message}"
 
         try:
             response = self.chat_session.send_message_stream(prompt)
             for chunk in response:
-                if chunk.text:
-                    yield chunk.text
+                if chunk.text: yield chunk.text
         except Exception as e:
             yield f"\n[API ERROR] {str(e)}"
+
+    def get_unique_filters(self):
+        try:
+            results = self.collection.get(include=["metadatas"])
+            metadatas = results.get("metadatas", [])
+            
+            locations, work_models, job_types, experiences, domains = set(), set(), set(), set(), set()
+            
+            for meta in metadatas:
+                if meta:
+                    title = str(meta.get("title", "")).lower()
+                    if any(ban in title for ban in self.ban_words): continue # Filtre listesini de temizliyoruz
+
+                    loc = str(meta.get("location") or "").strip().title()
+                    wm = str(meta.get("work_model") or "").strip()
+                    jt = str(meta.get("type") or meta.get("job_type") or "").strip()
+                    exp = str(meta.get("experience") or "").strip()
+                    dom = str(meta.get("domain") or "").strip()
+                    
+                    # ŞEHİR İSİMLERİNİ TEMİZLEME
+                    if loc:
+                        parts = loc.split()
+                        if len(parts) >= 2 and parts[0] == parts[1]: loc = parts[0]
+                    
+                    if loc in self.valid_cities: locations.add(loc)
+                    if wm and wm not in ["Unknown", "Not Specified", "None", ""]: work_models.add(wm)
+                    if jt and jt not in ["Unknown", "Not Specified", "None", ""]: job_types.add(jt)
+                    if exp and exp not in ["Unknown", "Not Specified", "None", ""]: experiences.add(exp)
+                    if dom and dom not in ["Unknown", "Not Specified", "None", ""]: domains.add(dom)
+            
+            return {
+                "locations": sorted(list(locations)),
+                "work_models": sorted(list(work_models)),
+                "job_types": sorted(list(job_types)),
+                "experiences": sorted(list(experiences)),
+                "domains": sorted(list(domains))
+            }
+        except Exception as e:
+            return {"locations": [], "work_models": [], "job_types": [], "experiences": [], "domains": []}

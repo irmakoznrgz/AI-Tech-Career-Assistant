@@ -10,12 +10,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
     "autoprefixer": "^10.5.4",
+    "axios": "^1.19.0",
+    "lucide-react": "^1.28.0",
     "postcss": "^8.5.25",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.2",
-    "tailwindcss": "^4.3.3"
+    "recharts": "^3.10.1",
+    "tailwindcss": "^4.3.3",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",
