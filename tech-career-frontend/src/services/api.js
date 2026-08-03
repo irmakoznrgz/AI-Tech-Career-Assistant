@@ -8,12 +8,13 @@ if (!sessionId) {
     localStorage.setItem('tech_career_session_id', sessionId);
 }
 
-export const searchJobs = async (searchQuery, uiFilters, limit = 50) => {
+export const searchJobs = async (searchQuery, uiFilters, limit = 50, cvText = "") => {
     try {
         const response = await axios.post(`${API_BASE_URL}/jobs/search`, {
             search_query: searchQuery,
             ui_filters: uiFilters,
-            limit: limit
+            limit: limit,
+            cv_text: cvText 
         });
         return response.data?.data || [];
     } catch (error) {

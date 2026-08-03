@@ -37,7 +37,7 @@ chat_sessions: Dict[str, Dict[str, Any]] = {}
 def get_chat_session(session_id: str):
     if not session_id:
         raise HTTPException(status_code=400, detail="Session ID is required.")
-    
+     
     if session_id not in chat_sessions:
         new_session = engine.client.chats.create(
             model=engine.model_name,
@@ -52,7 +52,7 @@ def get_chat_session(session_id: str):
         }
     else:
         chat_sessions[session_id]["last_active"] = datetime.now()
-        
+         
     return chat_sessions[session_id]["session"]
 
 async def cleanup_inactive_sessions():
@@ -82,6 +82,7 @@ class SearchRequest(BaseModel):
     search_query: str = "yazılım bilişim teknoloji veri uzman geliştirici mühendis"
     ui_filters: Optional[Dict[str, Any]] = None
     limit: int = 50
+    cv_text: Optional[str] = None
 
 class ChatRequest(BaseModel):
     session_id: str  
@@ -116,14 +117,16 @@ async def get_dashboard_stats():
 
 @app.post("/api/jobs/search")
 async def search_jobs(request: SearchRequest):
-    """Retrieves job postings from ChromaDB based on filters from React."""
+    """Retrieves job postings from ChromaDB based on filters or CV from React."""
     try:
+        query_to_use = request.cv_text if (request.cv_text and len(request.cv_text.strip()) > 20) else request.search_query
+        
         jobs = engine.search_jobs_for_ui(
-            search_query=request.search_query, 
+            search_query=query_to_use, 
             ui_filters=request.ui_filters, 
             limit=request.limit
         )
-        
+         
         clean_jobs = []
         for job in jobs:
             clean_job = {k: v for k, v in job.items() if k != "embedding"}
@@ -160,16 +163,16 @@ async def upload_cv(file: UploadFile = File(...)):
     """Reads the PDF from React, converts it to text, and extracts capabilities."""
     if not file.filename.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are allowed.")
-    
+     
     try:
         contents = await file.read()
-        
+         
         if len(contents) > 5 * 1024 * 1024:
             raise HTTPException(status_code=413, detail="File too large. Max 5MB.")
 
         pdf_reader = PyPDF2.PdfReader(io.BytesIO(contents))
         cv_text = " ".join([page.extract_text() for page in pdf_reader.pages if page.extract_text()])
-        
+         
         cv_text_lower = cv_text.lower()
         tech_keywords = ['python', 'java', 'c#', '.net', 'c++', 'javascript', 'typescript', 'react', 'angular', 'vue', 'node', 'sql', 'mysql', 'postgresql', 'mongodb', 'nosql',
         'aws', 'azure', 'gcp', 'docker', 'kubernetes', 'linux', 'git', 'ci/cd',
@@ -177,7 +180,7 @@ async def upload_cv(file: UploadFile = File(...)):
         'hadoop', 'spark', 'pytorch', 'tensorflow', 'excel', 'power bi', 'tableau',
         'html', 'css', 'spring boot', 'django', 'flask', 'golang', 'rust', 'ruby', 'swift', 'kotlin']
         found_skills = [skill for skill in tech_keywords if skill in cv_text_lower]
-        
+         
         return {
             "status": "success", 
             "cv_text": cv_text, 
@@ -194,14 +197,14 @@ def generate_galaxy_map(request: MapRequest):
     """Calculates PCA based on job postings and CV text and returns X, Y coordinates."""
     if len(request.jobs) < 3:
         raise HTTPException(status_code=400, detail="You need at least 3 listings to create a map.")
-        
+         
     try:
         texts_for_map = [j.get('description', '') for j in request.jobs]
         labels = [j.get('experience', 'Unknown') for j in request.jobs]
         titles = [j.get('title', 'Unknown') for j in request.jobs]
         companies = [j.get('company', 'Unknown') for j in request.jobs]
         links = [j.get('link', '#') for j in request.jobs]
-        
+         
         if request.cv_text:
             texts_for_map.append(request.cv_text)
             labels.append("MY CV")
@@ -210,10 +213,10 @@ def generate_galaxy_map(request: MapRequest):
             links.append("N/A")
 
         embeddings = engine.sentence_transformer_ef(texts_for_map)
-        
+         
         pca = PCA(n_components=2)
         coords = pca.fit_transform(embeddings)
-        
+         
         map_data = []
         for i in range(len(coords)):
             map_data.append({
@@ -224,7 +227,7 @@ def generate_galaxy_map(request: MapRequest):
                 "category": labels[i],
                 "link": links[i]
             })
-            
+             
         return {"status": "success", "map_data": map_data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -236,17 +239,17 @@ async def chat_with_bot(request: Request, body: ChatRequest):
     """Passes the streaming response from the specific user's chatbot to React."""
     try:
         user_session = get_chat_session(body.session_id)
-        
+         
         async def stream_generator():
             MAX_LLM_JOBS = 3
             job_context = ""
             for i, job in enumerate(body.job_list[:MAX_LLM_JOBS]):
                 job_context += f"--- JOB {i+1} ---\nPosition: {job.get('title')} | Company: {job.get('company')}\nReq: {job.get('experience')} | {job.get('location')}\nDetails: {job.get('description', '')[:150]}...\n\n"
-                
+                 
             prompt = f"[DATABASE CONTEXT]\n{job_context}\n"
             if body.cv_text:
                 prompt += f"\n[USER CV DATA]\nThe user has uploaded a CV. Use this context if they ask for advice or matching.\n{body.cv_text}\n"
-                
+                 
             prompt += f"\n[CRITICAL RULE]\nDetect the language of the USER MESSAGE below. You MUST reply entirely in that exact same language. Also, format your answer beautifully using Markdown (bullet points, bold text) for readability.\n\n[USER MESSAGE]\n{body.user_message}"
 
             try:
@@ -266,5 +269,5 @@ async def reset_chat(request: ResetRequest):
     if request.session_id in chat_sessions:
         del chat_sessions[request.session_id]
         return {"status": "success", "message": "Memory has been reset for this session."}
-    
+     
     return {"status": "success", "message": "No active session found to reset."}
