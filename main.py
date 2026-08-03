@@ -1,5 +1,6 @@
 import os
 import io
+import re
 import PyPDF2
 import asyncio
 from datetime import datetime, timedelta
@@ -119,12 +120,12 @@ async def get_dashboard_stats():
 async def search_jobs(request: SearchRequest):
     """Retrieves job postings from ChromaDB based on filters or CV from React."""
     try:
-        query_to_use = request.cv_text if (request.cv_text and len(request.cv_text.strip()) > 20) else request.search_query
-        
+        query_to_use = request.search_query or "yazılım bilişim teknoloji veri uzman geliştirici mühendis"
         jobs = engine.search_jobs_for_ui(
-            search_query=query_to_use, 
-            ui_filters=request.ui_filters, 
-            limit=request.limit
+            search_query=query_to_use,
+            ui_filters=request.ui_filters,
+            limit=request.limit,
+            cv_text=request.cv_text
         )
          
         clean_jobs = []

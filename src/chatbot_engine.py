@@ -1,4 +1,5 @@
 import os
+import re
 import random
 from collections import Counter 
 from datetime import datetime
@@ -61,12 +62,38 @@ class AITechCareerChatbot:
         if not val: return ""
         return str(val).lower().replace("-", "").replace(" ", "").strip()
 
-    def search_jobs_for_ui(self, search_query="yazılım bilişim teknoloji veri", ui_filters=None, limit=None):
+    def extract_cv_skills(self, cv_text):
+        if not cv_text or not str(cv_text).strip():
+            return []
+
+        cv_text_lower = str(cv_text).lower()
+        tech_pool = [
+            'python', 'java', 'c#', '.net', 'c++', 'javascript', 'typescript', 'react',
+            'angular', 'vue', 'node', 'sql', 'mysql', 'postgresql', 'mongodb', 'nosql',
+            'aws', 'azure', 'gcp', 'docker', 'kubernetes', 'linux', 'git', 'ci/cd',
+            'machine learning', 'deep learning', 'yapay zeka', 'nlp', 'data science',
+            'hadoop', 'spark', 'pytorch', 'tensorflow', 'excel', 'power bi', 'tableau',
+            'html', 'css', 'spring boot', 'django', 'flask', 'golang', 'rust', 'ruby', 'swift', 'kotlin'
+        ]
+
+        found_skills = []
+        for skill in tech_pool:
+            if re.search(rf'\b{re.escape(skill)}\b', cv_text_lower):
+                found_skills.append(skill)
+
+        return found_skills
+
+    def search_jobs_for_ui(self, search_query="yazılım bilişim teknoloji veri", ui_filters=None, limit=None, cv_text=None):
         total_docs = self.collection.count()
         fetch_limit = total_docs if total_docs > 0 else 10000
+        cv_skills = self.extract_cv_skills(cv_text) if cv_text else []
+        query_text = search_query or "yazılım bilişim teknoloji veri"
+
+        if cv_skills:
+            query_text = f"{query_text} {' '.join(cv_skills)}"
 
         search_params = {
-            "query_texts": [search_query], 
+            "query_texts": [query_text], 
             "n_results": fetch_limit,
             "include": ["metadatas", "documents", "distances"]
         }
@@ -105,11 +132,23 @@ class AITechCareerChatbot:
                 if "domain" in ui_filters and self.clean_val(ui_filters["domain"]) not in self.clean_val(dom): skip_job = True
                 
                 if skip_job: continue 
-            
-            distance = results['distances'][0][i] if 'distances' in results else 1.0
-            match_score = int(max(0, min(100, 100 - (distance * 35))))
 
-            if match_score < 45 and not ui_filters: continue
+            job_text = f"{title} {company} {document} {loc} {wm} {jt} {dom} {exp}".lower()
+            cv_overlap = sum(1 for skill in cv_skills if skill in job_text)
+            distance = results['distances'][0][i] if 'distances' in results else 1.0
+            base_score = int(max(0, min(100, 100 - (distance * 35))))
+
+            if cv_skills:
+                cv_strength = int((cv_overlap / max(len(cv_skills), 1)) * 100)
+                match_score = int(round((base_score * 0.55) + (cv_strength * 0.45)))
+                if cv_overlap < 1:
+                    continue
+            else:
+                match_score = base_score
+
+            if match_score < 45 and not ui_filters and not cv_skills: continue
+            if cv_skills and match_score < 55:
+                continue
 
             seen_jobs.add(job_identifier)
             job_list.append({
@@ -128,6 +167,8 @@ class AITechCareerChatbot:
                 "first_seen": metadata.get('first_seen', 'Unknown')
             })
             
+        job_list.sort(key=lambda item: item["match_score"], reverse=True)
+
         if not ui_filters and search_query == "yazılım bilişim teknoloji veri":
             random.shuffle(job_list)
 

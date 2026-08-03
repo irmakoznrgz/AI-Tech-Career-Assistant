@@ -64,11 +64,11 @@ const Home = () => {
     } catch (err) { setJobs([]); } finally { setIsLoading(false); }
   };
 
-  const handleSearch = async (filters, limit, customQuery = null) => {
+  const handleSearch = async (filters, limit, customQuery = null, cvTextOverride = "") => {
     setIsSearching(true); setShowMap(false); setCurrentPage(1);
     try {
       const query = customQuery || "yazılım bilişim teknoloji veri";
-      const data = await searchJobs(query, filters, limit);
+      const data = await searchJobs(query, filters, limit, cvTextOverride || cvText || "");
       setJobs(Array.isArray(data) ? data : []);
     } catch (err) { setJobs([]); } finally { setIsSearching(false); }
   };
@@ -78,7 +78,7 @@ const Home = () => {
       const result = await uploadCv(file);
       setCvText(result.cv_text);
       const skillsQuery = result.found_skills.length > 0 ? result.found_skills.join(" ") : "yazılım geliştirici";
-      handleSearch(null, 10000, skillsQuery);
+      await handleSearch(null, 10000, skillsQuery, result.cv_text);
     } catch (err) { console.error(err); }
   };
 
