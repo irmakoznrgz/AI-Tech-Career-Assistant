@@ -1,56 +1,99 @@
 import React from 'react';
-import { Heart, MapPin, Building, Briefcase, ExternalLink } from 'lucide-react';
+import { MapPin, Briefcase, Clock, Building2, ExternalLink, Heart, Layers } from 'lucide-react';
 import useStore from '../store/useStore';
 
 const JobCard = ({ job }) => {
-  const { savedJobs, saveJob, removeJob } = useStore();
-  const isSaved = (savedJobs || []).some(saved => saved.link === job.link || saved.id === job.id);
+  const { savedJobs, saveJob, removeJob, cvText } = useStore();
+  
+  const isSaved = savedJobs.some(s => s.id === job.id);
 
-  const handleSaveToggle = () => isSaved ? removeJob(job.id || job.link) : saveJob(job);
+  const handleSaveToggle = () => {
+    if (isSaved) {
+      removeJob(job.id); 
+    } else {
+      saveJob(job);
+    }
+  };
 
   return (
-    // Kart boyutunu daraltıp daha modern bir görünüm verdik
-    <div className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-2xl p-5 transition-all duration-300 hover:bg-slate-800/60 hover:border-emerald-500/30 flex flex-col justify-between h-full">
+    <div className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-xl hover:border-emerald-500/30 transition-all flex flex-col justify-between group">
       <div>
-        <div className="flex justify-between items-start mb-4 gap-3">
-          <div className="flex-1">
-            <h3 className="text-lg font-bold text-white line-clamp-2 leading-tight">{job.title || 'Unknown Title'}</h3>
-            <div className="flex items-center gap-1.5 text-gray-400 mt-2 text-sm">
-              <Building size={14} />
-              <span className="truncate">{job.company || 'Unknown Company'}</span>
+        <div className="flex items-start justify-between gap-4 mb-3">
+          <div>
+            <h3 className="text-lg font-bold text-white group-hover:text-emerald-400 transition-colors leading-snug">
+              {job.title}
+            </h3>
+            <div className="flex items-center gap-1.5 text-gray-400 text-sm mt-1">
+              <Building2 size={14} className="text-emerald-400 shrink-0" />
+              <span>{job.company}</span>
             </div>
           </div>
           
-          {/* LOGO veya BİNA EMOJİSİ - Hata yakalayıcı (onError) eklendi */}
-          <div className="w-10 h-10 shrink-0 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-xl overflow-hidden p-1">
-            {job.logo && str(job.logo).length > 5 ? (
-              <img 
-                src={job.logo} 
-                alt="Logo" 
-                className="w-full h-full object-contain" 
-                onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }} 
-              />
-            ) : null}
-            <span style={{ display: (job.logo && str(job.logo).length > 5) ? 'none' : 'block' }}>🏢</span>
-          </div>
+          {cvText && job.match_score && (
+            <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold px-2.5 py-1 rounded-full shrink-0">
+              %{job.match_score} Match
+            </div>
+          )}
         </div>
 
-        <div className="flex flex-wrap gap-1.5 mb-5 mt-3">
-          <span className="flex items-center gap-1 bg-white/5 border border-white/10 px-2.5 py-1 rounded-md text-xs text-gray-300"><MapPin size={12} />{job.location}</span>
-          <span className="flex items-center gap-1 bg-white/5 border border-white/10 px-2.5 py-1 rounded-md text-xs text-gray-300"><Briefcase size={12} />{job.work_model !== 'Unknown' ? job.work_model : (job.job_type || 'Full-time')}</span>
-          {job.experience && job.experience !== 'Unknown' && <span className="flex items-center gap-1 bg-white/5 border border-white/10 px-2.5 py-1 rounded-md text-xs text-gray-300">{job.experience}</span>}
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+       
+          {job.location && job.location !== 'Unknown' && (
+            <div className="flex items-center gap-1 bg-white/5 border border-white/10 text-gray-300 text-xs px-2.5 py-1 rounded-lg">
+              <MapPin size={12} className="text-emerald-400" />
+              <span>{job.location}</span>
+            </div>
+          )}
+
+          {job.work_model && job.work_model !== 'Unknown' && (
+            <div className="flex items-center gap-1 bg-white/5 border border-white/10 text-gray-300 text-xs px-2.5 py-1 rounded-lg">
+              <Briefcase size={12} className="text-emerald-400" />
+              <span>{job.work_model}</span>
+            </div>
+          )}
+
+          {job.job_type && job.job_type !== 'Unknown' && (
+            <div className="flex items-center gap-1 bg-white/5 border border-white/10 text-gray-300 text-xs px-2.5 py-1 rounded-lg">
+              <Clock size={12} className="text-emerald-400" />
+              <span>{job.job_type}</span>
+            </div>
+          )}
+
+          {job.experience && job.experience !== 'Unknown' && (
+            <div className="flex items-center gap-1 bg-white/5 border border-white/10 text-gray-300 text-xs px-2.5 py-1 rounded-lg">
+              <Layers size={12} className="text-emerald-400" />
+              <span>{job.experience}</span>
+            </div>
+          )}
+          
         </div>
       </div>
 
-      <div className="flex items-center justify-between mt-auto pt-3 border-t border-white/10">
-        <a href={job.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-sm font-semibold text-emerald-400 hover:text-emerald-300">
-          <span>Apply Now</span><ExternalLink size={14} />
+      <div className="flex items-center justify-between pt-4 border-t border-white/5 mt-2">
+        <a 
+          href={job.link} 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          className="flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 text-sm font-semibold transition-colors"
+        >
+          <span>View Details</span>
+          <ExternalLink size={14} />
         </a>
-        <button onClick={handleSaveToggle} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${isSaved ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-white/5 text-gray-400 border border-white/10 hover:text-white'}`}>
-          <Heart size={14} className={isSaved ? "fill-current" : ""} /> {isSaved ? 'Saved' : 'Save'}
+
+        <button 
+          onClick={handleSaveToggle}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium transition-all ${
+            isSaved 
+              ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' 
+              : 'bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10'
+          }`}
+        >
+          <Heart size={14} className={isSaved ? 'fill-rose-400 text-rose-400' : ''} />
+          <span>{isSaved ? 'Saved' : 'Save'}</span>
         </button>
       </div>
     </div>
   );
 };
+
 export default JobCard;

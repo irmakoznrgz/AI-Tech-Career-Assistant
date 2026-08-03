@@ -4,6 +4,7 @@ import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import SavedJobs from './pages/SavedJobs';
 import ChatWidget from './components/ChatWidget';
+import Dashboard from './pages/Dashboard';
 
 function App() {
   return (
@@ -12,7 +13,6 @@ function App() {
         className="min-h-screen bg-cover bg-center bg-no-repeat bg-fixed text-white font-sans"
         style={{ backgroundImage: "url('/img/pic.jpg')" }}
       >
-        {/* backdrop-blur TAMAMEN KALDIRILDI. Resim çok daha net görünecek. */}
         <div className="min-h-screen bg-slate-900/50 flex flex-col relative">
           
           <Navbar />
@@ -21,6 +21,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/saved-jobs" element={<SavedJobs />} />
+              <Route path="/dashboard" element={<Dashboard />} />
             </Routes>
           </main>
 

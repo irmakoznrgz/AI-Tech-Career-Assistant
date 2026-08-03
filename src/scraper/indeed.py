@@ -84,6 +84,9 @@ async def destroy_login_popups(page):
 async def start_indeed_scraper():
     os.makedirs("data/raw", exist_ok=True)
     jsonl_path = "data/raw/indeed.jsonl"
+
+    if not os.path.exists(jsonl_path):
+        open(jsonl_path, 'a', encoding='utf-8').close()
     
     seen_job_urls = load_seen_links(jsonl_path)
     print(f"[INFO] Loaded {len(seen_job_urls)} existing job links from database to prevent duplicates.")
@@ -127,7 +130,6 @@ async def start_indeed_scraper():
         
         context = await browser.new_context(
             viewport={"width": 1920, "height": 1080},
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
             locale="tr-TR",
             timezone_id="Europe/Istanbul"
         )

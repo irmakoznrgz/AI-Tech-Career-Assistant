@@ -4,7 +4,6 @@ body {
     background-color: #0f172a; 
     color: #f8fafc;
     font-family: system-ui, -apple-system, sans-serif;
-    /* Opaklık değerlerini çok düşürdük ki pic.jpg görselin arkadan net bir şekilde seçilebilsin */
     background-image: linear-gradient(rgba(15, 23, 42, 0.40), rgba(15, 23, 42, 0.70)), url('/img/pic.jpg');
     background-size: cover;
     background-position: center;
@@ -12,7 +11,6 @@ body {
 }
 
 @layer components {
-    /* Referans görselindeki o profesyonel yarı saydam paneller */
     .glass-panel {
         background-color: rgba(30, 41, 59, 0.45); 
         backdrop-filter: blur(16px);
@@ -22,7 +20,6 @@ body {
     }
 }
 
-/* Dropdown menülerin (select) varsayılan çirkin tasarımlarını temizleyip modernleştiriyoruz */
 select {
     -webkit-appearance: none;
     -moz-appearance: none;
@@ -33,6 +30,6 @@ select {
     background-size: 1em;
 }
 select option {
-    background-color: #0f172a; /* Açılan menülerin arka planı şık ve koyu olacak */
+    background-color: #0f172a; 
     color: white;
 }

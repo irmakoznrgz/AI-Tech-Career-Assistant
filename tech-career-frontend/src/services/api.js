@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://127.0.0.1:8000/api';
+const API_BASE_URL = 'http://3.120.210.213:8000/api';
 
 let sessionId = localStorage.getItem('tech_career_session_id');
 if (!sessionId) {
@@ -15,7 +15,6 @@ export const searchJobs = async (searchQuery, uiFilters, limit = 50) => {
             ui_filters: uiFilters,
             limit: limit
         });
-        // Güvenlik kalkanı: Veri yoksa boş dizi dön
         return response.data?.data || [];
     } catch (error) {
         console.error("Error occurred while searching for job:", error);
@@ -92,10 +91,46 @@ export const streamChatResponse = async (userMessage, jobList, cvText, onChunkRe
 export const getFilters = async () => {
     try {
         const response = await axios.get(`${API_BASE_URL}/jobs/filters`);
-        return response.data?.data || { locations: [], work_models: [], experiences: [], domains: [] };
+        return response.data?.data || { locations: [], work_models: [], job_types: [], experiences: [], domains: [] };
     } catch (error) {
         console.error("Filters error:", error);
-        return { locations: [], work_models: [], experiences: [], domains: [] };
+        return { locations: [], work_models: [], job_types: [], experiences: [], domains: [] };
+    }
+};
+
+export const checkExpiredJobs = async (jobIds) => {
+    if (!jobIds || jobIds.length === 0) return [];
+    try {
+        const response = await axios.post(`${API_BASE_URL}/jobs/check-expired`, {
+            job_ids: jobIds
+        });
+        return response.data?.expired_ids || [];
+    } catch (error) {
+        console.error("Expired jobs check failed:", error);
+        return [];
+    }
+};
+
+export const getDashboardStats = async () => {
+    try {
+        const response = await axios.get(`${API_BASE_URL}/dashboard/stats`);
+        return response.data?.data || { work_models: [], experiences: [], locations: [], domains: [], timeline: [] };
+    } catch (error) {
+        console.error("Dashboard stats error:", error);
+        return { work_models: [], experiences: [], locations: [], domains: [], timeline: [] };
+    }
+};
+
+export const getChartInsight = async (chartName, chartData) => {
+    try {
+        const response = await axios.post(`${API_BASE_URL}/dashboard/insight`, {
+            chart_name: chartName,
+            chart_data: chartData
+        });
+        return response.data?.insight || "Analysis could not be retrieved.";
+    } catch (error) {
+        console.error("Insight error:", error);
+        return "Analysis could not be retrieved.";
     }
 };
 

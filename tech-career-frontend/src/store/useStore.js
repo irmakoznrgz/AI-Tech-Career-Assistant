@@ -8,9 +8,27 @@ const useStore = create(
       isChatOpen: false,
       cvText: "", 
       
+      searchQuery: "",
+      filters: {
+        location: "",
+        experience: "",
+        domain: "",
+        workModel: "",
+        jobType: ""
+      },
+
       setChatOpen: (isOpen) => set({ isChatOpen: isOpen }),
       setCvText: (text) => set({ cvText: text }),
-      clearCvText: () => set({ cvText: "" }), // YENİ: CV silme fonksiyonu
+      clearCvText: () => set({ cvText: "" }),
+
+      setSearchQuery: (query) => set({ searchQuery: query }),
+      setFilters: (newFilters) => set((state) => ({ 
+        filters: { ...state.filters, ...newFilters } 
+      })),
+      resetFilters: () => set({
+        searchQuery: "",
+        filters: { location: "", experience: "", domain: "", workModel: "", jobType: "" }
+      }),
 
       saveJob: (job) => set((state) => {
         const isAlreadySaved = state.savedJobs.find((j) => j.id === job.id || j.link === job.link);
@@ -25,4 +43,5 @@ const useStore = create(
     { name: 'tech-career-storage' }
   )
 );
+
 export default useStore;

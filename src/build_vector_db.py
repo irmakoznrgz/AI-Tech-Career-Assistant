@@ -28,6 +28,7 @@ def create_vector_database():
     df['Job_Link'] = df['Job_Link'].fillna('No link available') if 'Job_Link' in df.columns else 'No link available'
     df['Location_Details'] = df['Location_Details'].fillna('Not specified') if 'Location_Details' in df.columns else 'Not specified'
     df['Work_Model'] = df['Work_Model'].fillna('Not specified') if 'Work_Model' in df.columns else 'Not specified'
+    df['Job_Type'] = df['Job_Type'].fillna('Not specified') if 'Job_Type' in df.columns else 'Not specified'
 
     df['Cluster_ID'] = df['Cluster_ID'].fillna(-1) if 'Cluster_ID' in df.columns else -1
     df['Cluster_X'] = df['Cluster_X'].fillna(0.0) if 'Cluster_X' in df.columns else 0.0
@@ -81,6 +82,7 @@ def create_vector_database():
                 "experience": str(row['Experience_Level']),
                 "location": str(row['Location_Details']),
                 "work_model": str(row['Work_Model']),
+                "job_type": str(row['Job_Type']), 
                 "link": str(row['Job_Link']),
                 "first_seen": str(row['first_seen']),
                 "last_seen": str(row['last_seen']),
@@ -99,7 +101,7 @@ def create_vector_database():
 
     print("\n-> Running Garbage Collector for expired job postings...")
    
-    cutoff_date = datetime.now() - timedelta(days=3)
+    cutoff_date = datetime.now() - timedelta(days=365)
     cutoff_int = int(cutoff_date.strftime("%Y%m%d"))
     
     try:

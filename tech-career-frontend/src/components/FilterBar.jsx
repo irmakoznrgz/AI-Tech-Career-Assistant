@@ -6,13 +6,32 @@ import useStore from '../store/useStore';
 const FilterBar = ({ onSearch, onUploadCv, isSearching }) => {
   const { cvText, clearCvText } = useStore();
   const [filters, setFilters] = useState({ location: '', work_model: '', job_type: '', experience: '', domain: '' });
-  const [options, setOptions] = useState({ locations: [], work_models: [], job_types: [], experiences: [], domains: [] });
+
+  const [options, setOptions] = useState({ 
+    locations: [], 
+    work_models: [], 
+    job_types: [], 
+    experiences: [], 
+    domains: [] 
+  });
 
   useEffect(() => {
-    getFilters().then(data => { if(data) setOptions(data); });
+    getFilters().then(data => { 
+      if (data) {
+        setOptions({
+          locations: data.locations || [],
+          work_models: data.work_models || [],
+          job_types: data.job_types || [],
+          experiences: data.experiences || [],
+          domains: data.domains || []
+        });
+      } 
+    });
   }, []);
 
-  const handleFilterChange = (e) => setFilters(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  const handleFilterChange = (e) => {
+    setFilters(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
 
   const handleSearchClick = () => {
     const cleanFilters = {};
@@ -37,45 +56,45 @@ const FilterBar = ({ onSearch, onUploadCv, isSearching }) => {
         
         <div className="flex flex-col gap-1.5 relative">
           <label className="text-xs font-medium text-gray-400 uppercase tracking-wider px-1">Location</label>
-          <select name="location" value={filters.location} onChange={handleFilterChange} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white appearance-none cursor-pointer">
+          <select name="location" value={filters.location} onChange={handleFilterChange} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-emerald-500/50">
             <option value="" className="bg-slate-800 text-gray-400">All Locations</option>
-            {(options.locations || []).map((loc, i) => <option key={i} value={loc} className="bg-slate-800">{loc}</option>)}
+            {options.locations.map((loc, i) => <option key={`loc-${i}`} value={loc} className="bg-slate-800 text-white">{loc}</option>)}
           </select>
           <ChevronDown size={16} className="absolute right-4 top-9 text-gray-500 pointer-events-none" />
         </div>
 
         <div className="flex flex-col gap-1.5 relative">
           <label className="text-xs font-medium text-gray-400 uppercase tracking-wider px-1">Work Model</label>
-          <select name="work_model" value={filters.work_model} onChange={handleFilterChange} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white appearance-none cursor-pointer">
+          <select name="work_model" value={filters.work_model} onChange={handleFilterChange} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-emerald-500/50">
             <option value="" className="bg-slate-800 text-gray-400">All Models</option>
-            {(options.work_models || []).map((type, i) => <option key={i} value={type} className="bg-slate-800">{type}</option>)}
+            {options.work_models.map((type, i) => <option key={`wm-${i}`} value={type} className="bg-slate-800 text-white">{type}</option>)}
           </select>
           <ChevronDown size={16} className="absolute right-4 top-9 text-gray-500 pointer-events-none" />
         </div>
 
         <div className="flex flex-col gap-1.5 relative">
           <label className="text-xs font-medium text-gray-400 uppercase tracking-wider px-1">Job Type</label>
-          <select name="job_type" value={filters.job_type} onChange={handleFilterChange} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white appearance-none cursor-pointer">
+          <select name="job_type" value={filters.job_type} onChange={handleFilterChange} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-emerald-500/50">
             <option value="" className="bg-slate-800 text-gray-400">All Types</option>
-            {(options.job_types || []).map((type, i) => <option key={i} value={type} className="bg-slate-800">{type}</option>)}
+            {options.job_types.map((type, i) => <option key={`jt-${i}`} value={type} className="bg-slate-800 text-white">{type}</option>)}
           </select>
           <ChevronDown size={16} className="absolute right-4 top-9 text-gray-500 pointer-events-none" />
         </div>
 
         <div className="flex flex-col gap-1.5 relative">
           <label className="text-xs font-medium text-gray-400 uppercase tracking-wider px-1">Experience</label>
-          <select name="experience" value={filters.experience} onChange={handleFilterChange} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white appearance-none cursor-pointer">
+          <select name="experience" value={filters.experience} onChange={handleFilterChange} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-emerald-500/50">
             <option value="" className="bg-slate-800 text-gray-400">All Levels</option>
-            {(options.experiences || []).map((exp, i) => <option key={i} value={exp} className="bg-slate-800">{exp}</option>)}
+            {options.experiences.map((exp, i) => <option key={`exp-${i}`} value={exp} className="bg-slate-800 text-white">{exp}</option>)}
           </select>
           <ChevronDown size={16} className="absolute right-4 top-9 text-gray-500 pointer-events-none" />
         </div>
 
         <div className="flex flex-col gap-1.5 relative">
           <label className="text-xs font-medium text-gray-400 uppercase tracking-wider px-1">Domain</label>
-          <select name="domain" value={filters.domain} onChange={handleFilterChange} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white appearance-none cursor-pointer">
+          <select name="domain" value={filters.domain} onChange={handleFilterChange} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-emerald-500/50">
             <option value="" className="bg-slate-800 text-gray-400">All Domains</option>
-            {(options.domains || []).map((dom, i) => <option key={i} value={dom} className="bg-slate-800">{dom}</option>)}
+            {options.domains.map((dom, i) => <option key={`dom-${i}`} value={dom} className="bg-slate-800 text-white">{dom}</option>)}
           </select>
           <ChevronDown size={16} className="absolute right-4 top-9 text-gray-500 pointer-events-none" />
         </div>
@@ -107,4 +126,5 @@ const FilterBar = ({ onSearch, onUploadCv, isSearching }) => {
     </div>
   );
 };
+
 export default FilterBar;

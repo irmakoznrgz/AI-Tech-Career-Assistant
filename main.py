@@ -12,16 +12,13 @@ from fastapi.responses import StreamingResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from google.genai import types
 
 from src.chatbot_engine import AITechCareerChatbot
 
 app = FastAPI(title="TechCareer API")
 
-global_db_bot = AITechCareerChatbot()
-
-chat_sessions: Dict[str, AITechCareerChatbot] = {}
-
-stateless_engine = AITechCareerChatbot()
+engine = AITechCareerChatbot()
 
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
@@ -37,19 +34,26 @@ app.add_middleware(
 
 chat_sessions: Dict[str, Dict[str, Any]] = {}
 
-def get_chatbot(session_id: str) -> AITechCareerChatbot:
+def get_chat_session(session_id: str):
     if not session_id:
         raise HTTPException(status_code=400, detail="Session ID is required.")
     
     if session_id not in chat_sessions:
+        new_session = engine.client.chats.create(
+            model=engine.model_name,
+            config=types.GenerateContentConfig(
+                system_instruction=engine.system_instruction,
+                temperature=0.45, top_p=0.9        
+            )
+        )
         chat_sessions[session_id] = {
-            "bot": AITechCareerChatbot(),
+            "session": new_session,
             "last_active": datetime.now()
         }
     else:
         chat_sessions[session_id]["last_active"] = datetime.now()
         
-    return chat_sessions[session_id]["bot"]
+    return chat_sessions[session_id]["session"]
 
 async def cleanup_inactive_sessions():
     while True:
@@ -67,7 +71,13 @@ async def startup_event():
     asyncio.create_task(cleanup_inactive_sessions())
 
 
-# --- REQUEST MODELS ---
+class CheckExpiredRequest(BaseModel):
+    job_ids: List[str]
+
+class InsightRequest(BaseModel):
+    chart_name: str
+    chart_data: List[Dict[str, Any]]
+
 class SearchRequest(BaseModel):
     search_query: str = "yazılım bilişim teknoloji veri uzman geliştirici mühendis"
     ui_filters: Optional[Dict[str, Any]] = None
@@ -87,14 +97,20 @@ class ResetRequest(BaseModel):
     session_id: str
 
 
-# --- ENDPOINTS ---
-
 @app.get("/api/jobs/filters")
 async def get_filters():
-    temp_bot = AITechCareerChatbot()
     try:
-        filters = global_db_bot.get_unique_filters()
+        filters = engine.get_unique_filters()
         return {"status": "success", "data": filters}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/dashboard/stats")
+async def get_dashboard_stats():
+    """Sends graphical data for the React Dashboard screen."""
+    try:
+        stats = engine.get_dashboard_stats()
+        return {"status": "success", "data": stats}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -102,7 +118,7 @@ async def get_filters():
 async def search_jobs(request: SearchRequest):
     """Retrieves job postings from ChromaDB based on filters from React."""
     try:
-        jobs = stateless_engine.search_jobs_for_ui(
+        jobs = engine.search_jobs_for_ui(
             search_query=request.search_query, 
             ui_filters=request.ui_filters, 
             limit=request.limit
@@ -117,10 +133,31 @@ async def search_jobs(request: SearchRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/dashboard/insight")
+async def get_chart_insight(request: InsightRequest):
+    """AI interprets the given graph."""
+    try:
+        prompt = f"You are a Senior IT Data Analyst. Write a clear, fluent, and professional analysis/insight in Turkish, no more than two sentences long, based solely on the data in the chart below. Do not use Markdown. Chart Name: {request.chart_name} Data: {request.chart_data}"
+       
+        response = engine.client.models.generate_content(
+            model=engine.model_name,
+            contents=prompt,
+        )
+        return {"status": "success", "insight": response.text}
+    except Exception as e:
+        return {"status": "error", "insight": "Analysis could not be retrieved."}
+
+@app.post("/api/jobs/check-expired")
+async def check_expired_jobs(request: CheckExpiredRequest):
+    try:
+        expired_ids = engine.get_expired_job_ids(request.job_ids)
+        return {"status": "success", "expired_ids": expired_ids}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/cv/upload")
 async def upload_cv(file: UploadFile = File(...)):
     """Reads the PDF from React, converts it to text, and extracts capabilities."""
-
     if not file.filename.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are allowed.")
     
@@ -172,7 +209,7 @@ def generate_galaxy_map(request: MapRequest):
             companies.append("You")
             links.append("N/A")
 
-        embeddings = stateless_engine.sentence_transformer_ef(texts_for_map)
+        embeddings = engine.sentence_transformer_ef(texts_for_map)
         
         pca = PCA(n_components=2)
         coords = pca.fit_transform(embeddings)
@@ -198,26 +235,36 @@ def generate_galaxy_map(request: MapRequest):
 async def chat_with_bot(request: Request, body: ChatRequest):
     """Passes the streaming response from the specific user's chatbot to React."""
     try:
-        user_bot = get_chatbot(body.session_id)
+        user_session = get_chat_session(body.session_id)
         
-        return StreamingResponse(
-            user_bot.generate_response_stream(
-                body.user_message, 
-                body.job_list, 
-                body.cv_text
-            ), 
-            media_type="text/event-stream"
-        )
+        async def stream_generator():
+            MAX_LLM_JOBS = 3
+            job_context = ""
+            for i, job in enumerate(body.job_list[:MAX_LLM_JOBS]):
+                job_context += f"--- JOB {i+1} ---\nPosition: {job.get('title')} | Company: {job.get('company')}\nReq: {job.get('experience')} | {job.get('location')}\nDetails: {job.get('description', '')[:150]}...\n\n"
+                
+            prompt = f"[DATABASE CONTEXT]\n{job_context}\n"
+            if body.cv_text:
+                prompt += f"\n[USER CV DATA]\nThe user has uploaded a CV. Use this context if they ask for advice or matching.\n{body.cv_text}\n"
+                
+            prompt += f"\n[CRITICAL RULE]\nDetect the language of the USER MESSAGE below. You MUST reply entirely in that exact same language. Also, format your answer beautifully using Markdown (bullet points, bold text) for readability.\n\n[USER MESSAGE]\n{body.user_message}"
+
+            try:
+                response = user_session.send_message_stream(prompt)
+                for chunk in response:
+                    if chunk.text: yield chunk.text
+            except Exception as e:
+                yield f"\n[API ERROR] {str(e)}"
+
+        return StreamingResponse(stream_generator(), media_type="text/event-stream")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @app.post("/api/chat/reset")
 async def reset_chat(request: ResetRequest):
     """Resets the memory for a specific user session."""
     if request.session_id in chat_sessions:
-        chat_sessions[request.session_id]["bot"].reset_chat_session()
-        chat_sessions[request.session_id]["last_active"] = datetime.now()
+        del chat_sessions[request.session_id]
         return {"status": "success", "message": "Memory has been reset for this session."}
     
     return {"status": "success", "message": "No active session found to reset."}
