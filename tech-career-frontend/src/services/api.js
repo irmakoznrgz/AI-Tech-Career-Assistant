@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'https://3.120.210.213.nip.io';
+const API_BASE_URL = 'https://3.120.210.213.nip.io/api';
 
 let sessionId = localStorage.getItem('tech_career_session_id');
 if (!sessionId) {
