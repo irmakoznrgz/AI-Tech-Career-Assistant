@@ -109,6 +109,12 @@ async def start_indeed_scraper():
         "mimar", "architect", "mühendis", "engineer", "uzman", "analyst", "analist"
     ]
 
+    closed_keywords = [
+        "başvuru kabul etmiyor", "yayından kaldırılmıştır", "başvuru süresi dolmuştur", 
+        "başvuruya kapanmıştır", "ilan yayında değildir", "no longer accepting applications", 
+        "job is no longer available", "posting has expired"
+    ]
+
     async with async_playwright() as p:
         print("Indeed Automation Bot is being launched...")
         
@@ -213,7 +219,6 @@ async def start_indeed_scraper():
                     
                         print(f"    -> [STEALTH] Memory wiped. Re-attempting access to page {current_page}...")
                         
-                        # Login duvarını aşarken de Retry mantığı uyguluyoruz
                         reloaded = False
                         for attempt in range(max_retries):
                             try:
@@ -254,7 +259,6 @@ async def start_indeed_scraper():
                     if job_url in seen_job_urls:
                         continue
                         
-                    seen_job_urls.add(job_url)
                     page_new_jobs += 1
 
                     title_element = await card.query_selector('h2.jobTitle span[title]') or a_tag
@@ -278,6 +282,7 @@ async def start_indeed_scraper():
                     else:
                         emp_type = "Not specified"
 
+                    full_page_text = ""
                     try:
                         await card.scroll_into_view_if_needed()
                         await human_like_delay(0.5, 1.5)
@@ -293,9 +298,18 @@ async def start_indeed_scraper():
                         job_description = await desc_element.inner_text()
                         job_description = job_description.strip()
                         
+                        body_element = page.locator('body')
+                        full_page_text = (await body_element.inner_text()).lower()
+                        
                     except Exception as e:
                         print(f"    -> [INFO] Description could not be loaded in side panel for {title}.")
                         job_description = "Description could not be retrieved"
+                    
+                    if any(ck in full_page_text for ck in closed_keywords) or any(ck in job_description.lower() for ck in closed_keywords):
+                        print(f"    -> [CLOSED] Ad '{title}' is no longer accepting applications. Skipping...")
+                        continue
+
+                    seen_job_urls.add(job_url)
                     
                     job_data = {
                         "Platform": "Indeed",

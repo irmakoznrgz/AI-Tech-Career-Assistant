@@ -111,6 +111,12 @@ async def start_linkedin_scraper():
         "köpek eğitmeni", "müşteri hizmetleri"
     ]
 
+    closed_keywords = [
+        "başvuru kabul etmiyor", "yayından kaldırılmıştır", "başvuru süresi dolmuştur", 
+        "başvuruya kapanmıştır", "ilan yayında değildir", "no longer accepting applications", 
+        "job is no longer available", "posting has expired"
+    ]
+
     async with async_playwright() as p:
         print("LinkedIn Automation Bot is being launched (Patchright / Cloud Mode)...")
         
@@ -151,7 +157,6 @@ async def start_linkedin_scraper():
             await human_like_delay(2.5, 4.0)
             await dismiss_linkedin_popups(page)
             
-            # Güncellenmiş, sınırsız kaydırma fonksiyonu
             await load_infinite_scroll_jobs(page)
             
             try:
@@ -210,9 +215,9 @@ async def start_linkedin_scraper():
                 logo_element = await card.query_selector('img.artdeco-entity-image')
                 logo_url = await logo_element.get_attribute('data-delayed-url') or await logo_element.get_attribute('src') if logo_element else "No Logo"
                 
-                seen_job_urls.add(job_url)
                 page_new_jobs += 1
                 
+                full_page_text = ""
                 try:
                     await card.scroll_into_view_if_needed()
                     await human_like_delay(0.5, 1.2) 
@@ -225,9 +230,19 @@ async def start_linkedin_scraper():
                     job_description = await desc_element.inner_text() if desc_element else "Description could not be retrieved"
                     job_description = job_description.strip()
                     
+                    right_panel = await page.query_selector('.two-pane-serp-page__detail-view')
+                    if right_panel:
+                         full_page_text = (await right_panel.inner_text()).lower()
+                    
                 except Exception as e:
                     job_description = "Description could not be retrieved"
-                    
+                
+                if any(ck in full_page_text for ck in closed_keywords):
+                    print(f"    -> [CLOSED] Ad '{title}' is no longer accepting applications. Skipping...")
+                    continue
+                
+                seen_job_urls.add(job_url)
+
                 job_data = {
                     "Platform": "LinkedIn",
                     "Search_Keyword": keyword,

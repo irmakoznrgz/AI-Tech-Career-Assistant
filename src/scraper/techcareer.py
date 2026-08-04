@@ -61,6 +61,12 @@ async def start_techcareer_scraper():
         "çağrı merkezi", "garson", "kasiyer", "temizlik", "güvenlik görevlisi",
         "öğretmen", "hemşire", "doktor", "avukat", "tesisat", "mekanik"
     ]
+    
+    closed_keywords = [
+        "başvuru kabul etmiyor", "yayından kaldırılmıştır", "başvuru süresi dolmuştur", 
+        "başvuruya kapanmıştır", "ilan yayında değildir", "no longer accepting applications", 
+        "job is no longer available", "posting has expired"
+    ]
 
     async with async_playwright() as p:
         print("Techcareer Automation Bot is being launched (Patchright / Cloud Mode)...")
@@ -131,7 +137,6 @@ async def start_techcareer_scraper():
                 if not job_url or job_url in seen_job_urls:
                     continue 
 
-                seen_job_urls.add(job_url)
                 page_new_jobs += 1
 
                 title_element = await card.query_selector('[data-test="single-job-title"]')
@@ -165,9 +170,13 @@ async def start_techcareer_scraper():
                     logo_url = f"https://www.techcareer.net{logo_url}"
 
                 detail_page = await context.new_page()
+                full_page_text = ""
                 try:
                     await detail_page.goto(job_url, timeout=30000, wait_until="domcontentloaded")
                     await human_like_delay(0.5, 1.5)
+                    
+                    body_element = detail_page.locator('body')
+                    full_page_text = (await body_element.inner_text()).lower()
                     
                     await detail_page.wait_for_selector('[data-test="job-detail-desc-content"]', timeout=5000) 
                     desc_locator = detail_page.locator('[data-test="job-detail-desc-content"]')
@@ -186,6 +195,12 @@ async def start_techcareer_scraper():
                     skills = ""
                 
                 await detail_page.close() 
+                
+                if any(ck in full_page_text for ck in closed_keywords):
+                    print(f"    -> [CLOSED] Ad '{title}' is no longer accepting applications. Skipping...")
+                    continue
+                
+                seen_job_urls.add(job_url)
                 
                 job_data = {
                     "Platform": "Techcareer",

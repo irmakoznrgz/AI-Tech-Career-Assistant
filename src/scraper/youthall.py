@@ -54,6 +54,12 @@ async def start_youthall_scraper():
         "it ", "bilgi teknolojileri", "cyber"
     ]
 
+    closed_keywords = [
+        "başvuru kabul etmiyor", "yayından kaldırılmıştır", "başvuru süresi dolmuştur", 
+        "başvuruya kapanmıştır", "ilan yayında değildir", "no longer accepting applications", 
+        "job is no longer available", "posting has expired"
+    ]
+
     categories = [
         {"url": "https://www.youthall.com/tr/jobs", "type": "Job Posting"},
         {"url": "https://www.youthall.com/tr/talent-programs", "type": "Talent Program / Internship"}
@@ -94,7 +100,7 @@ async def start_youthall_scraper():
                 
                 for attempt in range(max_retries):
                     try:
-                       
+                        
                         await page.goto(target_url, timeout=45000, wait_until="domcontentloaded")
                         page_loaded = True
                         break 
@@ -130,7 +136,6 @@ async def start_youthall_scraper():
                     if job_url in seen_job_urls:
                         continue
                     
-                    seen_job_urls.add(job_url)
                     page_new_total_jobs += 1
 
                     header_elem = await card.query_selector('.jobs-content-header')
@@ -159,9 +164,13 @@ async def start_youthall_scraper():
                         bottom_text = "Not specified"
 
                     detail_page = await context.new_page()
+                    full_page_text = ""
                     try:
                         await detail_page.goto(job_url, timeout=30000, wait_until="domcontentloaded")
                         await human_like_delay(0.5, 1.5)
+                        
+                        body_element = detail_page.locator('body')
+                        full_page_text = (await body_element.inner_text()).lower()
                         
                         detail_selector = '.c-job_post__content, .c-profile-home-section'
                         await detail_page.wait_for_selector(detail_selector, timeout=5000) 
@@ -178,6 +187,12 @@ async def start_youthall_scraper():
                         job_description = "Description could not be retrieved"
                     
                     await detail_page.close() 
+                    
+                    if any(ck in full_page_text for ck in closed_keywords):
+                        print(f"    -> [CLOSED] Ad '{title}' is no longer accepting applications. Skipping...")
+                        continue
+
+                    seen_job_urls.add(job_url)
                     
                     job_data = {
                         "Platform": "Youthall",

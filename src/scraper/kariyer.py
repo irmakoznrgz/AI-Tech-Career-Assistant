@@ -169,6 +169,12 @@ async def start_kariyer_scraper():
         "mimar", "architect", "mühendis", "engineer", "uzman", "analyst", "analist"
     ]
 
+    closed_keywords = [
+        "başvuru kabul etmiyor", "yayından kaldırılmıştır", "başvuru süresi dolmuştur", 
+        "başvuruya kapanmıştır", "ilan yayında değildir", "no longer accepting applications", 
+        "job is no longer available", "posting has expired"
+    ]
+
     async with async_playwright() as p:
         print("Kariyer.net Automation Bot is being launched...")
         
@@ -286,7 +292,6 @@ async def start_kariyer_scraper():
                     if not job_url or job_url in seen_job_urls:
                         continue
                         
-                    seen_job_urls.add(job_url)
                     page_new_urls += 1
 
                     title_element = await card.query_selector('.title-left')
@@ -308,6 +313,7 @@ async def start_kariyer_scraper():
                     
                     logo_url = "No Logo"
                     
+                    full_page_text = ""
                     try:
                         await detail_page.goto(job_url, timeout=30000, wait_until="domcontentloaded")
                         await human_like_delay(1.0, 2.0)
@@ -316,6 +322,9 @@ async def start_kariyer_scraper():
                        
                         if "Just a moment" in detail_title or "Cloudflare" in detail_title or "Access to" in detail_title:
                             await bypass_cloudflare_advanced(detail_page)
+                       
+                        body_element = detail_page.locator('body')
+                        full_page_text = (await body_element.inner_text()).lower()
                        
                         description_selectors = [
                             '[data-test="qualifications-and-job-description"]',
@@ -345,6 +354,12 @@ async def start_kariyer_scraper():
                         print(f"    -> [INFO] Connection timeout on detail page for {title}. Skipping description.")
                         job_description = "Description could not be retrieved"
                     
+                    if any(ck in full_page_text for ck in closed_keywords):
+                        print(f"    -> [CLOSED] Ad '{title}' is no longer accepting applications. Skipping...")
+                        continue
+
+                    seen_job_urls.add(job_url)
+
                     job_data = {
                         "Platform": "Kariyer.net",
                         "Search_Keyword": keyword,
