@@ -64,6 +64,14 @@ const Home = () => {
     } catch (err) { setJobs([]); } finally { setIsLoading(false); }
   };
 
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth' 
+    });
+  };
+
   const handleSearch = async (filters, limit, customQuery = null, cvTextOverride = "") => {
     setIsSearching(true); setShowMap(false); setCurrentPage(1);
     try {
@@ -126,7 +134,7 @@ const Home = () => {
     const pages = [];
     for (let i = 1; i <= totalPages; i++) {
       pages.push(
-        <button key={i} onClick={() => setCurrentPage(i)} className={`w-9 h-9 mx-1 flex items-center justify-center rounded-lg text-sm font-bold transition-all ${currentPage === i ? 'bg-emerald-500 text-slate-950 shadow-md scale-105' : 'text-gray-400 hover:bg-white/10 hover:text-white'}`}>
+        <button key={i} onClick={() => handlePageChange(i)} className={`w-9 h-9 mx-1 flex items-center justify-center rounded-lg text-sm font-bold transition-all ${currentPage === i ? 'bg-emerald-500 text-slate-950 shadow-md scale-105' : 'text-gray-400 hover:bg-white/10 hover:text-white'}`}>
           {i}
         </button>
       );
@@ -210,9 +218,9 @@ const Home = () => {
             {currentJobs.map((job, index) => <JobCard key={job.id || index} job={job} />)}
             {totalPages > 1 && (
               <div className="flex flex-wrap items-center justify-center gap-1 mt-8 bg-slate-900/40 p-2.5 rounded-xl border border-white/10 w-fit mx-auto">
-                <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="p-1.5 text-emerald-400 disabled:text-gray-600 hover:bg-white/5 rounded-lg"><ChevronLeft size={20}/></button>
+                <button onClick={() => handlePageChange(Math.max(currentPage - 1, 1))} disabled={currentPage === 1} className="p-1.5 text-emerald-400 disabled:text-gray-600 hover:bg-white/5 rounded-lg"><ChevronLeft size={20}/></button>
                 <div className="flex flex-wrap items-center mx-2 gap-1">{renderPageNumbers()}</div>
-                <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="p-1.5 text-emerald-400 disabled:text-gray-600 hover:bg-white/5 rounded-lg"><ChevronRight size={20}/></button>
+                <button onClick={() => handlePageChange(Math.min(currentPage + 1, totalPages))} disabled={currentPage === totalPages} className="p-1.5 text-emerald-400 disabled:text-gray-600 hover:bg-white/5 rounded-lg"><ChevronRight size={20}/></button>
               </div>
             )}
           </div>
