@@ -29,11 +29,19 @@ def run_script(script_path, strict=False):
         result = subprocess.run(
             [sys.executable, script_path], 
             check=True, 
-            text=True
+            text=True,
+            timeout=900
         )
         end_time = time.time()
         print(f"✅ SUCCESSFUL: {script_path} (Time: {end_time - start_time:.2f} seconds)")
         return True
+        
+    except subprocess.TimeoutExpired:
+        end_time = time.time()
+        print(f"⚠️ TIMEOUT: {script_path} hung for too long (>15 mins) and was killed! Moving to next...")
+        if strict:
+            sys.exit(1)
+        return False
         
     except subprocess.CalledProcessError as e:
         end_time = time.time()
@@ -51,7 +59,7 @@ def main():
     if os.path.exists(os.path.join(project_root, "src")):
         os.chdir(project_root)
 
-    print(f"\nMASTER PIPELINE STARTED -{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"\nMASTER PIPELINE STARTED - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     pipeline_start = time.time()
   
     print("\n" + "#"*40)
@@ -81,6 +89,16 @@ def main():
         else:
             print(f"FILE NOT FOUND: {core_script}")
             sys.exit(1)
+
+    print("\n" + "#"*40)
+    print("PHASE 3: DATABASE CLEANUP (STATUS CHECKER)")
+    print("#"*40)
+    
+    status_checker_path = "src/status_checker.py"
+    if os.path.exists(status_checker_path):
+        run_script(status_checker_path, strict=False)
+    else:
+        print(f"FILE NOT FOUND: {status_checker_path}. Skipping cleanup phase.")
             
     pipeline_end = time.time()
     print("\n" + "="*40)
