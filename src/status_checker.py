@@ -7,8 +7,19 @@ from patchright.async_api import async_playwright
 DB_PATH = "data/chroma_db"
 COLLECTION_NAME = "job_postings"
 
-CLOSED_KEYWORDS = ["başvuru kabul etmiyor", "bu ilan başvuruları artık kabul etmiyor", "bu ilan artık başvurulaır kabul etmiyor", "yayından kaldırılmıştır", "başvuru süresi dolmuştur","başvuruya kapanmıştır", "ilan yayında değildir", "no longer accepting applications", 
-"job is no longer available", "posting has expired", "artık başvuru kabul etmiyor"
+CLOSED_KEYWORDS = [
+    "başvuru kabul etmiyor", 
+    "bu ilan başvuruları artık kabul etmiyor", 
+    "bu ilan artık başvuruları kabul etmiyor", 
+    "yayından kaldırılmıştır", 
+    "başvuru süresi dolmuştur",
+    "başvuruya kapanmıştır", 
+    "ilan yayında değildir", 
+    "no longer accepting applications", 
+    "job is no longer available", 
+    "posting has expired", 
+    "artık başvuru kabul etmiyor",
+    "bu iş ilanının süresi doldu" 
 ]
 
 async def human_like_delay(min_sec=2.0, max_sec=5.0):
@@ -17,7 +28,6 @@ async def human_like_delay(min_sec=2.0, max_sec=5.0):
 async def check_job_status(page, url):
     try:
         await page.goto(url, timeout=35000, wait_until="domcontentloaded")
-     
         await human_like_delay(2.5, 4.5)
         
         content = await page.content()
@@ -29,7 +39,6 @@ async def check_job_status(page, url):
         return True 
     except Exception as e:
         print(f"Error checking {url}: {e}")
-        
         return True
 
 async def main():
@@ -60,7 +69,6 @@ async def main():
         return
         
     print(f"Found {len(ids)} jobs in the database. Starting verification...")
-    ids_to_delete = []
  
     async with async_playwright() as p:
         browser = await p.chromium.launch(
@@ -82,22 +90,19 @@ async def main():
                 
             print(f"[{i+1}/{len(ids)}] Checking: {title[:40]}...")
             is_active = await check_job_status(page, url)
-            
+     
             if not is_active:
-                print(f"  -> [CLOSED] Marked for deletion: {url}")
-                ids_to_delete.append(job_id)
+                print(f"  -> [CLOSED] Deleting immediately: {url}")
+                try:
+                    collection.delete(ids=[job_id])
+                    print(f"  -> [SUCCESS] Removed from ChromaDB.")
+                except Exception as e:
+                    print(f"  -> [ERROR] Failed to delete: {e}")
             
             await human_like_delay(1.5, 3.5)
                 
         await context.close()
         await browser.close()
-        
-    if ids_to_delete:
-        print(f"\nFound {len(ids_to_delete)} closed jobs. Deleting from ChromaDB...")
-        collection.delete(ids=ids_to_delete)
-        print("Deletion successful!")
-    else:
-        print("\nNo closed jobs found. Database is clean.")
         
     print("="*50)
     print("STATUS CHECKER COMPLETED")

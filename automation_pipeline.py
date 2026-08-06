@@ -26,22 +26,15 @@ def run_script(script_path, strict=False):
     start_time = time.time()
     
     try:
+        # timeout parametresi tamamen kaldırıldı
         result = subprocess.run(
             [sys.executable, script_path], 
             check=True, 
-            text=True,
-            timeout=900
+            text=True
         )
         end_time = time.time()
         print(f"✅ SUCCESSFUL: {script_path} (Time: {end_time - start_time:.2f} seconds)")
         return True
-        
-    except subprocess.TimeoutExpired:
-        end_time = time.time()
-        print(f"⚠️ TIMEOUT: {script_path} hung for too long (>15 mins) and was killed! Moving to next...")
-        if strict:
-            sys.exit(1)
-        return False
         
     except subprocess.CalledProcessError as e:
         end_time = time.time()
